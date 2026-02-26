@@ -1,17 +1,23 @@
 import { useState, useEffect } from 'react';
-import { Search, Shield, Ban, CheckCircle, Save, X, Calendar, Link as LinkIcon, Users as UsersIcon } from 'lucide-react';
+import { Search, Shield, Ban, CheckCircle, Save, X, Calendar, Link as LinkIcon, Users as UsersIcon, Monitor } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
 import { Profile } from '../../contexts/AuthContext';
 
+// Extended Profile with concurrent streams
+interface ExtendedProfile extends Profile {
+    max_concurrent_streams?: number;
+}
+
 export default function Users() {
-    const [users, setUsers] = useState<Profile[]>([]);
+    const [users, setUsers] = useState<ExtendedProfile[]>([]);
     const [loading, setLoading] = useState(true);
     const [searchTerm, setSearchTerm] = useState('');
 
     // Edit Modal State
-    const [editingUser, setEditingUser] = useState<Profile | null>(null);
+    const [editingUser, setEditingUser] = useState<ExtendedProfile | null>(null);
     const [editM3u, setEditM3u] = useState('');
     const [editExpiry, setEditExpiry] = useState('');
+    const [editMaxStreams, setEditMaxStreams] = useState(2);
     const [updating, setUpdating] = useState(false);
 
     const fetchUsers = async () => {
@@ -46,7 +52,7 @@ export default function Users() {
         fetchUsers();
     }, [searchTerm]);
 
-    const handleBanToggle = async (user: Profile) => {
+    const handleBanToggle = async (user: ExtendedProfile) => {
         if (!confirm(`${user.account_number} numaralı hesabı ${user.is_banned ? 'aktif etmek' : 'yasaklamak'} istediğinize emin misiniz?`)) return;
 
         try {
@@ -62,10 +68,11 @@ export default function Users() {
         }
     };
 
-    const openEditModal = (user: Profile) => {
+    const openEditModal = (user: ExtendedProfile) => {
         setEditingUser(user);
         setEditM3u(user.m3u_url || '');
         setEditExpiry(user.subscription_expiry ? new Date(user.subscription_expiry).toISOString().split('T')[0] : '');
+        setEditMaxStreams(user.max_concurrent_streams || 2);
     };
 
     const handleUpdateUser = async () => {
@@ -77,7 +84,8 @@ export default function Users() {
                 .from('profiles')
                 .update({
                     m3u_url: editM3u.trim(),
-                    subscription_expiry: editExpiry ? new Date(editExpiry).toISOString() : null
+                    subscription_expiry: editExpiry ? new Date(editExpiry).toISOString() : null,
+                    max_concurrent_streams: Math.max(1, Math.min(5, editMaxStreams)),
                 })
                 .eq('id', editingUser.id);
 
@@ -103,7 +111,7 @@ export default function Users() {
             <header className="mb-10 lg:mb-14 flex flex-col md:flex-row md:items-end justify-between gap-6">
                 <div>
                     <h1 className="text-3xl lg:text-5xl font-black tracking-tight mb-3 uppercase bg-gradient-to-r from-white to-gray-500 bg-clip-text text-transparent">Kullanıcı Yönetimi</h1>
-                    <p className="text-gray-400 font-bold uppercase tracking-widest text-xs lg:text-sm">Hesapları incele, M3U ata ve süre belirle</p>
+                    <p className="text-gray-400 font-bold uppercase tracking-widest text-xs lg:text-sm">Hesapları incele, M3U ata, süre ve cihaz limiti belirle</p>
                 </div>
 
                 <div className="relative w-full md:w-96 group">
@@ -127,6 +135,7 @@ export default function Users() {
                                 <th className="px-8 py-6 text-[10px] font-black uppercase tracking-[0.2em] text-gray-500 rounded-tl-3xl">Kullanıcı / Hesap</th>
                                 <th className="px-8 py-6 text-[10px] font-black uppercase tracking-[0.2em] text-gray-500 text-center">Durum</th>
                                 <th className="px-8 py-6 text-[10px] font-black uppercase tracking-[0.2em] text-gray-500">Abonelik Süresi</th>
+                                <th className="px-8 py-6 text-[10px] font-black uppercase tracking-[0.2em] text-gray-500 text-center">Ekran Limiti</th>
                                 <th className="px-8 py-6 text-[10px] font-black uppercase tracking-[0.2em] text-gray-500">M3U Bağlantısı</th>
                                 <th className="px-8 py-6 text-[10px] font-black uppercase tracking-[0.2em] text-gray-500 text-right rounded-tr-3xl">İşlemler</th>
                             </tr>
@@ -134,7 +143,7 @@ export default function Users() {
                         <tbody className="divide-y divide-white/5">
                             {loading ? (
                                 <tr>
-                                    <td colSpan={5} className="px-8 py-32 text-center">
+                                    <td colSpan={6} className="px-8 py-32 text-center">
                                         <div className="w-12 h-12 border-4 border-primary border-t-transparent rounded-full animate-spin mx-auto shadow-[0_0_30px_rgba(var(--primary),0.5)]"></div>
                                     </td>
                                 </tr>
@@ -173,6 +182,12 @@ export default function Users() {
                                                 </span>
                                             </div>
                                         </td>
+                                        <td className="px-8 py-5 text-center">
+                                            <div className="inline-flex items-center gap-2 px-3 py-1.5 bg-blue-500/10 text-blue-400 border border-blue-500/30 rounded-full text-xs font-bold">
+                                                <Monitor size={12} />
+                                                {user.max_concurrent_streams || 2} Ekran
+                                            </div>
+                                        </td>
                                         <td className="px-8 py-5">
                                             {user.m3u_url ? (
                                                 <div className="flex items-center gap-2 text-primary bg-primary/10 px-3 py-1.5 rounded-xl border border-primary/20 hover:bg-primary/20 transition-colors w-fit max-w-[200px]" title={user.m3u_url}>
@@ -204,7 +219,7 @@ export default function Users() {
                                 ))
                             ) : (
                                 <tr>
-                                    <td colSpan={5} className="px-8 py-32 text-center">
+                                    <td colSpan={6} className="px-8 py-32 text-center">
                                         <div className="flex flex-col items-center justify-center opacity-40">
                                             <UsersIcon size={48} className="mb-4 text-gray-400" />
                                             <span className="text-gray-400 font-bold uppercase tracking-widest text-sm">Hiçbir kullanıcı bulunamadı.</span>
@@ -217,13 +232,12 @@ export default function Users() {
                 </div>
             </div>
 
-            {/* Premium Edit Modal */}
+            {/* Edit Modal */}
             {editingUser && (
                 <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
                     <div className="absolute inset-0 bg-black/80 backdrop-blur-sm transition-opacity" onClick={() => setEditingUser(null)} />
 
                     <div className="bg-surface border border-white/10 w-full max-w-xl rounded-3xl shadow-2xl relative animate-in zoom-in-95 duration-200 overflow-hidden">
-                        {/* Header decor */}
                         <div className="absolute top-0 inset-x-0 h-1 bg-gradient-to-r from-primary via-blue-500 to-primary" />
 
                         <div className="p-8 pb-6 border-b border-white/5 flex justify-between items-start bg-white/5">
@@ -241,6 +255,7 @@ export default function Users() {
                         </div>
 
                         <div className="p-8 space-y-8">
+                            {/* M3U URL */}
                             <div className="space-y-4">
                                 <div>
                                     <label className="flex items-center gap-2 text-xs font-black uppercase tracking-[0.15em] text-white mb-3">
@@ -251,13 +266,16 @@ export default function Users() {
                                         type="url"
                                         value={editM3u}
                                         onChange={(e) => setEditM3u(e.target.value)}
-                                        placeholder="http://siberiptv.com/get.php?username=..."
+                                        placeholder="http://flixify-cdn.com/get.php?username=..."
                                         className="w-full px-5 py-4 bg-black/50 border border-white/10 rounded-2xl focus:ring-2 focus:ring-primary/50 focus:border-primary/50 outline-none transition-all text-sm font-medium text-white placeholder:text-gray-600 shadow-inner"
                                     />
-                                    <p className="mt-2 text-[10px] text-gray-500 font-bold uppercase tracking-wider ml-1">Kullanıcıya özel IPTV listesinin ham .m3u bağlantısı.</p>
+                                    <p className="mt-2 text-[10px] text-gray-500 font-bold uppercase tracking-wider ml-1">
+                                        Kullanıcıya özel IPTV listesinin M3U bağlantısı.
+                                    </p>
                                 </div>
                             </div>
 
+                            {/* Subscription Date */}
                             <div className="space-y-4">
                                 <div>
                                     <label className="flex items-center gap-2 text-xs font-black uppercase tracking-[0.15em] text-white mb-3">
@@ -275,6 +293,32 @@ export default function Users() {
                                     <button onClick={() => addMonths(1)} className="flex-1 py-3 bg-white/5 hover:bg-white/10 text-gray-300 hover:text-white text-xs font-black uppercase tracking-wider rounded-xl transition-colors border border-white/5">+1 AY</button>
                                     <button onClick={() => addMonths(3)} className="flex-1 py-3 bg-white/5 hover:bg-white/10 text-gray-300 hover:text-white text-xs font-black uppercase tracking-wider rounded-xl transition-colors border border-white/5">+3 AY</button>
                                     <button onClick={() => addMonths(12)} className="flex-1 py-3 bg-primary/10 hover:bg-primary/20 text-primary text-xs font-black uppercase tracking-wider rounded-xl transition-colors border border-primary/20">+1 YIL</button>
+                                </div>
+                            </div>
+
+                            {/* Concurrent Streams Limit */}
+                            <div className="space-y-4">
+                                <div>
+                                    <label className="flex items-center gap-2 text-xs font-black uppercase tracking-[0.15em] text-white mb-3">
+                                        <Monitor size={14} className="text-primary" />
+                                        Eşzamanlı Ekran Limiti
+                                    </label>
+                                    <div className="flex items-center gap-4">
+                                        <input
+                                            type="range"
+                                            min="1"
+                                            max="5"
+                                            value={editMaxStreams}
+                                            onChange={(e) => setEditMaxStreams(parseInt(e.target.value))}
+                                            className="flex-1 h-2 bg-white/10 rounded-lg appearance-none cursor-pointer accent-primary"
+                                        />
+                                        <span className="w-12 text-center text-2xl font-black text-primary">
+                                            {editMaxStreams}
+                                        </span>
+                                    </div>
+                                    <p className="mt-2 text-[10px] text-gray-500 font-bold uppercase tracking-wider ml-1">
+                                        Aynı anda izlenebilecek maksimum cihaz sayısı (1-5).
+                                    </p>
                                 </div>
                             </div>
                         </div>

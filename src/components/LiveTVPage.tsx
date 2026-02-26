@@ -1,15 +1,21 @@
+/**
+ * FLIXIFY LIVE TV PAGE
+ * 
+ * Netflix-style Live TV interface.
+ * Yeni IPTV API ile entegre, tema korunmuştur.
+ */
+
 import { useEffect, useState, useMemo, useCallback, memo } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { VideoPlayer } from './VideoPlayer';
-import { M3UChannel, parseM3U } from '../lib/m3uParser';
-import { fetchUserPlaylist } from '../lib/iptvService';
-import { usePlaylistCache } from '../store/usePlaylistCache';
+import { useIPTVStore } from '../store/useIPTVStore';
 import { useAuth } from '../contexts/AuthContext';
 import { UpgradePrompt } from './UpgradePrompt';
+import type { Channel } from '../lib/iptvApi';
 
 import {
   Search, Tv, Globe, Play, Grid3X3,
-  List, ArrowLeft, Star
+  List, ArrowLeft, Star, Loader2, AlertCircle
 } from 'lucide-react';
 
 const countryGradients: Record<string, string> = {
@@ -25,53 +31,64 @@ const countryGradients: Record<string, string> = {
   'default': 'from-surface-hover via-surface to-background',
 };
 
-const STATIC_COUNTRIES = [
-  { code: 'TR', name: 'Türkiye', flag: '🇹🇷', channelCount: 816 },
-  { code: 'DE', name: 'Almanya', flag: '🇩🇪', channelCount: 1540 },
-  { code: 'US', name: 'ABD', flag: '🇺🇸', channelCount: 2210 },
-  { code: 'UK', name: 'İngiltere', flag: '🇬🇧', channelCount: 955 },
-  { code: 'FR', name: 'Fransa', flag: '🇫🇷', channelCount: 420 },
-  { code: 'IT', name: 'İtalya', flag: '🇮🇹', channelCount: 380 },
-  { code: 'ES', name: 'İspanya', flag: '🇪🇸', channelCount: 300 },
-  { code: 'RU', name: 'Rusya', flag: '🇷🇺', channelCount: 852 },
-  { code: 'NL', name: 'Hollanda', flag: '🇳🇱', channelCount: 215 },
-  { code: 'AZ', name: 'Azerbaycan', flag: '🇦🇿', channelCount: 88 },
-];
-
 const CHANNELS_PER_PAGE = 50;
 
 // Optimized country selection page component
 const CountrySelectionView = memo(function CountrySelectionView({
   profile,
-  myChannels,
+  countries,
   countrySearch,
   setCountrySearch,
   activeRegion,
   setActiveRegion,
   selectCountry,
   navigate,
-  isLoaded,
-  countries,
-  turkishChannelCount,
-  staticData,
+  isLoading,
+  error,
+  retry,
 }: any) {
-  const displayCountries = (isLoaded && countries.length > 0) ? countries : (staticData?.countries || STATIC_COUNTRIES);
-  
-  const filteredDisplayCountries = useMemo(() => {
-    return displayCountries.filter((c: any) => 
+  const popularCountries = countries.slice(0, 2);
+  const otherCountries = countries.slice(2, 62);
+
+  const filteredCountries = useMemo(() => {
+    if (!countrySearch) return otherCountries;
+    return [...popularCountries, ...otherCountries].filter((c: any) =>
       c.name.toLowerCase().includes(countrySearch.toLowerCase())
     );
-  }, [displayCountries, countrySearch]);
-
-  const popularCountries = filteredDisplayCountries.slice(0, 2);
-  const otherCountries = filteredDisplayCountries.slice(2, 62);
-  const displayTrCount = (isLoaded && turkishChannelCount > 0) ? turkishChannelCount : (staticData?.turkishChannelCount || 822);
+  }, [countries, countrySearch]);
 
   const getChannelCountText = useCallback((country: any) => {
-    if (country.code === 'TR') return `${displayTrCount} kanal`;
-    if (country.code === 'MY_LIST') return `${myChannels.length} kanal`;
     return `${country.channelCount} kanal`;
-  }, [displayTrCount, myChannels.length]);
+  }, []);
+
+  if (isLoading) {
+    return (
+      <div className="min-h-screen bg-[#0A0A0A] flex items-center justify-center">
+        <div className="text-center">
+          <Loader2 size={48} className="text-primary animate-spin mx-auto mb-4" />
+          <p className="text-white/60">Kanallar yükleniyor...</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="min-h-screen bg-[#0A0A0A] flex items-center justify-center">
+        <div className="text-center max-w-md px-6">
+          <AlertCircle size={48} className="text-red-500 mx-auto mb-4" />
+          <h2 className="text-xl font-bold text-white mb-2">Yükleme Hatası</h2>
+          <p className="text-white/60 mb-4">{error}</p>
+          <button
+            onClick={retry}
+            className="px-6 py-3 bg-primary text-white rounded-lg hover:bg-primary-hover transition-colors"
+          >
+            Tekrar Dene
+          </button>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-[#0A0A0A]">
@@ -118,7 +135,7 @@ const CountrySelectionView = memo(function CountrySelectionView({
           <div className="flex flex-col items-center justify-center text-center mb-12">
             <div className="inline-flex items-center gap-2 px-4 py-1.5 bg-white/5 backdrop-blur-md border border-white/10 rounded-full text-white/80 text-sm font-medium mb-8">
               <Globe size={16} className="text-primary" />
-              <span>826+ Kanal · 50+ Ülke</span>
+              <span>{countries.reduce((acc: number, c: any) => acc + c.channelCount, 0)}+ Kanal · {countries.length}+ Ülke</span>
             </div>
 
             <h2 className="text-4xl md:text-6xl font-black text-white mb-6 tracking-tight">
@@ -156,36 +173,6 @@ const CountrySelectionView = memo(function CountrySelectionView({
           </div>
 
           <div className="max-w-6xl mx-auto">
-            {profile?.m3u_url && (
-              <div className="grid grid-cols-1 mb-8">
-                <button
-                  onClick={() => selectCountry('MY_LIST')}
-                  className="group relative overflow-hidden rounded-2xl h-40 md:h-48 text-left bg-gradient-to-br from-primary via-primary-hover to-black hover:scale-[1.01] transition-all duration-300 shadow-2xl border border-primary/20"
-                >
-                  <div className="relative z-10 h-full flex flex-col justify-between p-8">
-                    <div>
-                      <div className="flex items-center gap-2 mb-3">
-                        <span className="px-3 py-1 bg-white/20 backdrop-blur-md rounded-full text-white text-[10px] font-bold uppercase tracking-wider">
-                          ⭐ ÖZEL İÇERİK
-                        </span>
-                        <span className="flex items-center gap-1.5 text-xs font-bold text-white bg-black/40 px-3 py-1 rounded-full border border-white/10">
-                          {myChannels.length} Kanal Yüklendi
-                        </span>
-                      </div>
-                      <h3 className="text-3xl md:text-5xl font-black text-white tracking-tight drop-shadow-lg flex items-center gap-4">
-                        <Star size={36} className="text-yellow-400 fill-yellow-400" />
-                        ÖZEL LİSTEM
-                      </h3>
-                    </div>
-                    <div className="flex items-center gap-4 text-white opacity-80 group-hover:opacity-100 transition-opacity">
-                      <span className="font-bold uppercase tracking-widest text-sm">Kanallarını İzle</span>
-                      <ArrowLeft className="w-4 h-4 rotate-180" />
-                    </div>
-                  </div>
-                </button>
-              </div>
-            )}
-
             {/* Popular Countries */}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
               {popularCountries.map((country: any) => (
@@ -224,7 +211,7 @@ const CountrySelectionView = memo(function CountrySelectionView({
 
             {/* Other Countries Grid */}
             <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-3 md:gap-4">
-              {otherCountries.map((country: any) => (
+              {filteredCountries.map((country: any) => (
                 <button
                   key={country.code}
                   onClick={() => selectCountry(country.code)}
@@ -263,16 +250,18 @@ const ChannelListView = memo(function ChannelListView({
   setSelectedChannel,
   loadMore,
   hasMore,
+  countries,
+  isLoading,
 }: any) {
   const getCountryName = useCallback((code: string) => {
-    const country = STATIC_COUNTRIES.find(c => c.code === code);
+    const country = countries.find((c: any) => c.code === code);
     return country?.name || code;
-  }, []);
+  }, [countries]);
 
   const getCountryFlag = useCallback((code: string) => {
-    const country = STATIC_COUNTRIES.find(c => c.code === code);
+    const country = countries.find((c: any) => c.code === code);
     return country?.flag || code;
-  }, []);
+  }, [countries]);
 
   return (
     <div className="min-h-screen bg-background">
@@ -349,11 +338,15 @@ const ChannelListView = memo(function ChannelListView({
       </header>
 
       <main className="p-4 md:p-8">
-        {displayedChannels.length > 0 ? (
+        {isLoading ? (
+          <div className="flex items-center justify-center py-20">
+            <Loader2 size={48} className="text-primary animate-spin" />
+          </div>
+        ) : displayedChannels.length > 0 ? (
           <>
             {viewMode === 'list' ? (
               <div className="space-y-2">
-                {displayedChannels.map((channel: M3UChannel, index: number) => (
+                {displayedChannels.map((channel: Channel, index: number) => (
                   <ChannelRow
                     key={channel.id}
                     channel={channel}
@@ -364,7 +357,7 @@ const ChannelListView = memo(function ChannelListView({
               </div>
             ) : (
               <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-4">
-                {displayedChannels.map((channel: M3UChannel, index: number) => (
+                {displayedChannels.map((channel: Channel, index: number) => (
                   <ChannelCard
                     key={channel.id}
                     channel={channel}
@@ -379,9 +372,10 @@ const ChannelListView = memo(function ChannelListView({
               <div className="mt-8 text-center">
                 <button
                   onClick={loadMore}
-                  className="px-6 py-3 bg-surface hover:bg-surface-hover text-white rounded-lg transition-colors"
+                  disabled={isLoading}
+                  className="px-6 py-3 bg-surface hover:bg-surface-hover text-white rounded-lg transition-colors disabled:opacity-50"
                 >
-                  Daha Fazla Yükle
+                  {isLoading ? 'Yükleniyor...' : 'Daha Fazla Yükle'}
                 </button>
               </div>
             )}
@@ -402,7 +396,7 @@ const ChannelListView = memo(function ChannelListView({
 
 // Optimized channel row component
 const ChannelRow = memo(function ChannelRow({ channel, index, onClick }: { 
-  channel: M3UChannel; 
+  channel: Channel; 
   index: number; 
   onClick: () => void;
 }) {
@@ -444,7 +438,7 @@ const ChannelRow = memo(function ChannelRow({ channel, index, onClick }: {
 
 // Optimized channel card component
 const ChannelCard = memo(function ChannelCard({ channel, index, onClick }: { 
-  channel: M3UChannel; 
+  channel: Channel; 
   index: number; 
   onClick: () => void;
 }) {
@@ -493,113 +487,77 @@ export function LiveTVPage() {
   const queryParams = new URLSearchParams(location.search);
   const selectedCountryCode = queryParams.get('ulke');
 
+  // Zustand Store
   const {
-    isLoaded,
-    isLoading,
+    channels,
     countries,
-    turkishChannelCount,
+    filteredChannels,
+    selectedChannel,
+    streamUrl,
+    isLoading,
+    error,
+    page,
+    hasMore,
     loadPlaylist,
-    getChannelsByCountry,
-  } = usePlaylistCache();
+    selectCountry,
+    setSearchQuery,
+    selectChannel,
+    closePlayer,
+    loadMore,
+    displayedChannels,
+  } = useIPTVStore();
 
+  // Local UI State
   const [viewMode, setViewMode] = useState<'grid' | 'list'>('list');
-  const [searchQuery, setSearchQuery] = useState('');
+  const [searchQuery, setLocalSearchQuery] = useState('');
   const [countrySearch, setCountrySearch] = useState('');
   const [activeRegion, setActiveRegion] = useState('Tümü');
-  const [selectedChannel, setSelectedChannel] = useState<M3UChannel | null>(null);
-  const [displayedChannels, setDisplayedChannels] = useState<M3UChannel[]>([]);
-  const [page, setPage] = useState(1);
 
-  const [staticData, setStaticData] = useState<{ turkishChannelCount: number, countries: any[] } | null>(null);
-  const [staticChannels, setStaticChannels] = useState<Record<string, any[]>>({});
-  const [myChannels, setMyChannels] = useState<M3UChannel[]>([]);
-
-  // Load static data once
+  // Load playlist on mount
   useEffect(() => {
-    fetch('/livetv_data.json')
-      .then(res => res.json())
-      .then(data => setStaticData(data))
-      .catch(console.error);
-
-    fetch('/livetv_channels_cache.json')
-      .then(res => res.json())
-      .then(data => setStaticChannels(data))
-      .catch(console.error);
-  }, []);
-
-  // Load user's custom M3U list
-  useEffect(() => {
-    if (profile?.m3u_url) {
-      fetchUserPlaylist(profile.m3u_url)
-        .then(text => {
-          if (text) {
-            const channels = parseM3U(text);
-            setMyChannels(channels);
-          }
-        })
-        .catch(console.error);
-    }
-  }, [profile?.m3u_url]);
-
-  // Load playlist cache once
-  useEffect(() => {
-    if (!isLoaded && !isLoading) {
+    if (channels.length === 0 && !isLoading) {
       loadPlaylist();
     }
-  }, [isLoaded, isLoading, loadPlaylist]);
+  }, [channels.length, isLoading, loadPlaylist]);
 
-  // Get channels for selected country
-  const allCountryChannels = useMemo(() => {
-    if (!selectedCountryCode) return [];
-
-    if (selectedCountryCode === 'MY_LIST') {
-      return myChannels;
-    }
-    
-    if (isLoaded) {
-      return getChannelsByCountry(selectedCountryCode);
-    }
-    
-    return staticChannels[selectedCountryCode] || [];
-  }, [selectedCountryCode, isLoaded, getChannelsByCountry, staticChannels, myChannels]);
-
-  // Filter channels by search
-  const filteredChannels = useMemo(() => {
-    if (!searchQuery.trim()) return allCountryChannels;
-    
-    const query = searchQuery.toLowerCase();
-    return allCountryChannels.filter(ch =>
-      ch.name.toLowerCase().includes(query) ||
-      ch.group.toLowerCase().includes(query)
-    );
-  }, [allCountryChannels, searchQuery]);
-
-  // Paginate displayed channels
+  // Filter when country or search changes
   useEffect(() => {
-    setDisplayedChannels(filteredChannels.slice(0, page * CHANNELS_PER_PAGE));
-  }, [filteredChannels, page]);
+    if (selectedCountryCode) {
+      selectCountry(selectedCountryCode);
+    }
+  }, [selectedCountryCode, selectCountry]);
 
-  // Reset page when country changes
-  useEffect(() => {
-    setPage(1);
-    setSearchQuery('');
-  }, [selectedCountryCode]);
+  // Handle search input
+  const handleSearchChange = useCallback((query: string) => {
+    setLocalSearchQuery(query);
+    setSearchQuery(query);
+  }, [setSearchQuery]);
 
-  const loadMore = useCallback(() => setPage(p => p + 1), []);
-
-  const selectCountry = useCallback((code: string) => {
+  // Navigation handlers
+  const handleSelectCountry = useCallback((code: string) => {
     navigate(`/canli-tv?ulke=${code}`);
   }, [navigate]);
 
-  const goBack = useCallback(() => {
+  const handleGoBack = useCallback(() => {
+    setLocalSearchQuery('');
     setSearchQuery('');
     navigate('/canli-tv');
-  }, [navigate]);
+  }, [navigate, setSearchQuery]);
 
-  const hasMore = displayedChannels.length < filteredChannels.length;
+  const handleSelectChannel = useCallback(async (channel: Channel) => {
+    await selectChannel(channel);
+  }, [selectChannel]);
 
-  // Show upgrade prompt if no M3U and not loaded
-  if (!selectedCountryCode && !profile?.m3u_url && !isLoaded) {
+  const handleClosePlayer = useCallback(() => {
+    closePlayer();
+  }, [closePlayer]);
+
+  const handleLoadMore = useCallback(() => {
+    loadMore();
+  }, [loadMore]);
+
+  // Show upgrade prompt if no subscription
+  if (!profile?.m3u_url && !profile?.subscription_expiry) {
     return <UpgradePrompt />;
   }
 
@@ -608,17 +566,16 @@ export function LiveTVPage() {
     return (
       <CountrySelectionView
         profile={profile}
-        myChannels={myChannels}
+        countries={countries}
         countrySearch={countrySearch}
         setCountrySearch={setCountrySearch}
         activeRegion={activeRegion}
         setActiveRegion={setActiveRegion}
-        selectCountry={selectCountry}
+        selectCountry={handleSelectCountry}
         navigate={navigate}
-        isLoaded={isLoaded}
-        countries={countries}
-        turkishChannelCount={turkishChannelCount}
-        staticData={staticData}
+        isLoading={isLoading}
+        error={error}
+        retry={loadPlaylist}
       />
     );
   }
@@ -628,30 +585,25 @@ export function LiveTVPage() {
     <>
       <ChannelListView
         selectedCountryCode={selectedCountryCode}
-        displayedChannels={displayedChannels}
+        displayedChannels={displayedChannels()}
         filteredChannels={filteredChannels}
         viewMode={viewMode}
         setViewMode={setViewMode}
         searchQuery={searchQuery}
-        setSearchQuery={setSearchQuery}
-        goBack={goBack}
-        setSelectedChannel={setSelectedChannel}
-        loadMore={loadMore}
+        setSearchQuery={handleSearchChange}
+        goBack={handleGoBack}
+        setSelectedChannel={handleSelectChannel}
+        loadMore={handleLoadMore}
         hasMore={hasMore}
+        countries={countries}
+        isLoading={isLoading}
       />
 
-      {selectedChannel && (
+      {selectedChannel && streamUrl && (
         <VideoPlayer
-          content={{
-            id: selectedChannel.id,
-            name: selectedChannel.name,
-            logo: selectedChannel.logo,
-            group: selectedChannel.group,
-            url: selectedChannel.url,
-            type: 'live',
-            isLive: true,
-          }}
-          onClose={() => setSelectedChannel(null)}
+          channel={selectedChannel}
+          streamUrl={streamUrl}
+          onClose={handleClosePlayer}
         />
       )}
     </>
