@@ -1,5 +1,43 @@
 @import "tailwindcss";
 
+/* ========================================
+   GLOBAL LAYER RESET - Layout Stabilization
+   ======================================== */
+@layer base {
+  *,
+  *::before,
+  *::after {
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0;
+  }
+
+  html {
+    overflow-x: hidden;
+    scroll-behavior: smooth;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+
+  body {
+    overflow-x: hidden;
+    min-height: 100vh;
+    background-color: var(--color-background);
+    color: var(--color-foreground);
+  }
+
+  /* Reduced Motion Support */
+  @media (prefers-reduced-motion: reduce) {
+    *,
+    *::before,
+    *::after {
+      animation-duration: 0.01ms !important;
+      animation-iteration-count: 1 !important;
+      transition-duration: 0.01ms !important;
+    }
+  }
+}
+
 @theme {
   /* Netflix Tarzı Premium Renk Paleti */
   --color-background: #0F0F0F;
@@ -49,13 +87,32 @@
     background-color: var(--color-background);
     color: var(--color-foreground);
     font-family: 'Netflix Sans', 'Helvetica Neue', Helvetica, Arial, sans-serif;
-    overflow-x: hidden;
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
   }
 
   ::selection {
     background: rgba(229, 9, 20, 0.3);
+  }
+
+  /* Focus Visible Accessibility */
+  :focus-visible {
+    outline: 2px solid var(--color-primary);
+    outline-offset: 2px;
+  }
+
+  /* Remove default button styles */
+  button {
+    cursor: pointer;
+    border: none;
+    background: none;
+  }
+
+  /* Image defaults */
+  img {
+    max-width: 100%;
+    height: auto;
+    display: block;
   }
 }
 
@@ -88,15 +145,30 @@
   display: none;
 }
 
-/* Card Hover Effect */
+/* ========================================
+   CARD SYSTEM - Enhanced Hover States
+   ======================================== */
 .card-hover {
-  transition: all 0.3s ease-out;
+  transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1), 
+              box-shadow 0.3s cubic-bezier(0.4, 0, 0.2, 1),
+              z-index 0s;
+  will-change: transform;
 }
 
 .card-hover:hover {
   transform: scale(1.05);
   z-index: 10;
   box-shadow: 0 20px 40px rgba(0, 0, 0, 0.8);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .card-hover {
+    transition: none;
+  }
+  
+  .card-hover:hover {
+    transform: none;
+  }
 }
 
 /* Gradient Overlays */
@@ -125,7 +197,9 @@
   text-shadow: 0 4px 8px rgba(0, 0, 0, 0.9);
 }
 
-/* Button Styles */
+/* ========================================
+   BUTTON SYSTEM - Polish & Consistency
+   ======================================== */
 .btn-primary {
   background-color: var(--color-primary);
   color: white;
@@ -134,16 +208,39 @@
   border-radius: 0.375rem;
   display: flex;
   align-items: center;
+  justify-content: center;
   gap: 0.5rem;
-  transition: all 0.2s;
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  position: relative;
+  overflow: hidden;
+}
+
+.btn-primary::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(to bottom, rgba(255,255,255,0.1), transparent);
+  opacity: 0;
+  transition: opacity 0.2s;
 }
 
 .btn-primary:hover {
   background-color: var(--color-primary-hover);
+  transform: translateY(-1px);
+  box-shadow: 0 4px 20px rgba(229, 9, 20, 0.4);
+}
+
+.btn-primary:hover::before {
+  opacity: 1;
 }
 
 .btn-primary:active {
-  transform: scale(0.95);
+  transform: translateY(0) scale(0.98);
+}
+
+.btn-primary:focus-visible {
+  outline: 2px solid white;
+  outline-offset: 2px;
 }
 
 .btn-secondary {
@@ -155,19 +252,25 @@
   border-radius: 0.375rem;
   display: flex;
   align-items: center;
+  justify-content: center;
   gap: 0.5rem;
-  transition: all 0.2s;
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  border: 1px solid rgba(255, 255, 255, 0.1);
 }
 
 .btn-secondary:hover {
   background-color: rgba(255, 255, 255, 0.3);
+  border-color: rgba(255, 255, 255, 0.2);
+  transform: translateY(-1px);
 }
 
 .btn-secondary:active {
-  transform: scale(0.95);
+  transform: translateY(0) scale(0.98);
 }
 
-/* Section Headers */
+/* ========================================
+   TYPOGRAPHY - Section Headers
+   ======================================== */
 .section-title {
   font-size: 1.25rem;
   font-weight: 700;
@@ -176,6 +279,7 @@
   display: flex;
   align-items: center;
   gap: 0.5rem;
+  letter-spacing: -0.01em;
 }
 
 @media (min-width: 768px) {
@@ -184,7 +288,41 @@
   }
 }
 
-/* Line Clamp */
+/* ========================================
+   UTILITY CLASSES - Layout Stabilization
+   ======================================== */
+.container-center {
+  width: 100%;
+  max-width: 1200px;
+  margin-left: auto;
+  margin-right: auto;
+  padding-left: 1rem;
+  padding-right: 1rem;
+}
+
+@media (min-width: 640px) {
+  .container-center {
+    padding-left: 1.5rem;
+    padding-right: 1.5rem;
+  }
+}
+
+@media (min-width: 1024px) {
+  .container-center {
+    padding-left: 2rem;
+    padding-right: 2rem;
+  }
+}
+
+/* Safe area for notched devices */
+.safe-area-inset {
+  padding-left: env(safe-area-inset-left);
+  padding-right: env(safe-area-inset-right);
+}
+
+/* ========================================
+   LINE CLAMP - Text Truncation
+   ======================================== */
 .line-clamp-2 {
   display: -webkit-box;
   -webkit-line-clamp: 2;
@@ -197,4 +335,35 @@
   -webkit-line-clamp: 3;
   -webkit-box-orient: vertical;
   overflow: hidden;
+}
+
+/* ========================================
+   FORM ELEMENTS - Polish
+   ======================================== */
+input, textarea, select {
+  font-family: inherit;
+}
+
+input::placeholder {
+  color: var(--color-foreground-dim);
+  opacity: 0.6;
+}
+
+/* Custom scrollbar for webkit */
+.custom-scrollbar::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+.custom-scrollbar::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.custom-scrollbar::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.2);
+  border-radius: 3px;
+}
+
+.custom-scrollbar::-webkit-scrollbar-thumb:hover {
+  background: rgba(255, 255, 255, 0.3);
 }

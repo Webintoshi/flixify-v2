@@ -149,77 +149,99 @@ const Register: React.FC = () => {
     const heroBg = 'https://images.unsplash.com/photo-1522778119026-d647f0596c20?q=80&w=3540&auto=format&fit=crop';
 
     return (
-        <div className="min-h-screen relative flex flex-col justify-center py-12 sm:px-6 lg:px-8 bg-background selection:bg-primary/30">
+        <div className="min-h-screen relative flex items-center justify-center py-12 px-4 sm:px-6 lg:px-8 bg-background selection:bg-primary/30">
+            {/* Background Layer */}
             <div className="absolute inset-0 z-0">
                 <div className="absolute inset-0 bg-gradient-to-r from-background via-background/80 to-transparent z-10" />
                 <div className="absolute inset-0 bg-gradient-to-t from-background via-black/60 to-transparent z-10" />
-                <img src={heroBg} alt="Hero Background" className="w-full h-full object-cover opacity-40 mix-blend-luminosity" />
+                <img 
+                    src={heroBg} 
+                    alt="" 
+                    className="w-full h-full object-cover opacity-40 mix-blend-luminosity" 
+                    loading="eager"
+                />
             </div>
 
-            <div className="absolute top-6 left-6 md:left-12 z-20">
-                <Link to="/" className="flex items-center gap-2 text-primary hover:opacity-80 transition-opacity">
-                    <Tv size={32} className="text-primary" />
-                    <span className="text-2xl font-bold text-white tracking-tight">
+            {/* Logo */}
+            <div className="absolute top-6 left-4 sm:left-6 lg:left-12 z-20">
+                <Link 
+                    to="/" 
+                    className="flex items-center gap-2 text-primary hover:opacity-80 transition-opacity focus:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 focus-visible:ring-offset-background rounded-lg"
+                >
+                    <Tv size={32} className="text-primary" aria-hidden="true" />
+                    <span className="text-xl sm:text-2xl font-bold text-white tracking-tight">
                         FLIXIFY <span className="text-[10px] bg-primary text-white px-1.5 py-0.5 rounded ml-1 align-top tracking-normal font-bold">PRO</span>
                     </span>
                 </Link>
             </div>
 
-            <div className="sm:mx-auto sm:w-full sm:max-w-md relative z-20 px-4 mt-8">
-                <div className="bg-surface/90 py-10 px-8 rounded-2xl shadow-2xl border border-white/10 backdrop-blur-xl sm:px-10">
+            {/* Main Container - Always Centered */}
+            <div className="w-full max-w-lg mx-auto relative z-20">
+                <div className="bg-surface/95 py-8 sm:py-10 px-6 sm:px-10 rounded-2xl shadow-2xl border border-white/10 backdrop-blur-xl">
                     {!isGenerated ? (
                         <div className="text-center">
-                            <h2 className="text-white text-2xl font-black mb-2 uppercase tracking-wide">Manuel Kurulum</h2>
-                            <p className="text-gray-400 text-sm mb-10 font-medium tracking-tight">İleri düzey kullanıcılar ve tam gizlilik arayanlar için.</p>
+                            <h2 className="text-white text-xl sm:text-2xl font-black mb-2 uppercase tracking-wide">Manuel Kurulum</h2>
+                            <p className="text-gray-400 text-sm mb-10 font-medium">İleri düzey kullanıcılar ve tam gizlilik arayanlar için.</p>
 
                             <button
                                 onClick={generateAccountNumber}
-                                className="w-full flex justify-center py-4 px-4 shadow-lg text-sm font-black text-white bg-primary hover:bg-primary-hover transition-all uppercase tracking-wider mb-6 rounded"
+                                disabled={isAnimating}
+                                className="w-full flex justify-center items-center py-4 px-4 shadow-lg text-sm font-black text-white bg-primary hover:bg-primary-hover active:scale-[0.98] transition-all duration-200 uppercase tracking-wider mb-6 rounded-lg disabled:opacity-50 disabled:cursor-not-allowed focus:outline-none focus-visible:ring-2 focus-visible:ring-white focus-visible:ring-offset-2 focus-visible:ring-offset-surface"
                             >
                                 Hesap Numarası Oluştur
                             </button>
 
-                            <div className="mt-6 text-center text-gray-400 text-sm font-medium">
-                                <p>
+                            <div className="mt-6 text-center">
+                                <p className="text-gray-400 text-sm font-medium">
                                     Zaten bir hesabınız var mı?{' '}
-                                    <Link to="/giris-yap" className="font-bold text-white border-b-2 border-primary hover:text-primary transition-colors pb-0.5">
+                                    <Link 
+                                        to="/giris-yap" 
+                                        className="font-bold text-white border-b-2 border-primary hover:text-primary hover:border-primary transition-all duration-200 pb-0.5 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 focus-visible:ring-offset-surface rounded-sm"
+                                    >
                                         BURADAN GİRİŞ YAPIN
                                     </Link>
                                 </p>
                             </div>
                         </div>
                     ) : (
-                        <div className="text-left">
-                            <h2 className="text-white text-xl font-black mb-2 uppercase tracking-wide">Bu, hesap numaranızdır.</h2>
-                            <p className="text-gray-400 text-sm mb-8 font-bold uppercase leading-relaxed">
+                        <div className="text-center sm:text-left">
+                            <h2 className="text-white text-lg sm:text-xl font-black mb-2 uppercase tracking-wide">Bu, hesap numaranızdır.</h2>
+                            <p className="text-gray-400 text-sm mb-8 font-medium leading-relaxed">
                                 Giriş yaparken ihtiyacınız olacağı için bu bilgiyi kaydedin.
                             </p>
 
                             {error && (
-                                <div className="bg-red-500/10 border border-red-500/50 p-4 rounded mb-6 text-red-400 text-sm font-bold">
+                                <div 
+                                    className="bg-red-500/10 border border-red-500/50 p-4 rounded-lg mb-6 text-red-400 text-sm font-bold animate-in fade-in slide-in-from-top-2"
+                                    role="alert"
+                                    aria-live="polite"
+                                >
                                     {error}
                                 </div>
                             )}
 
-                            <div className={`bg-background/80 border-2 ${isAnimating ? 'border-primary/50' : 'border-white/20'} border-dashed p-5 mb-6 text-center rounded`}>
-                                <span className={`text-2xl sm:text-[28px] tracking-widest font-mono font-bold transition-colors ${isAnimating ? 'text-primary' : 'text-white'}`}>
+                            <div className={`bg-background/80 border-2 ${isAnimating ? 'border-primary/50' : 'border-white/20'} border-dashed p-5 mb-6 text-center rounded-lg select-all`}>
+                                <span 
+                                    className={`text-xl sm:text-2xl tracking-widest font-mono font-bold transition-colors ${isAnimating ? 'text-primary' : 'text-white'}`}
+                                    aria-label="Hesap numaranız"
+                                >
                                     {formatAccountNumber(accountNumber)}
                                 </span>
                             </div>
 
-                            <div className="flex gap-3 mb-8">
+                            <div className="flex flex-col sm:flex-row gap-3 mb-8">
                                 <button
                                     onClick={handleCopy}
                                     disabled={isAnimating}
-                                    className="flex-1 flex items-center justify-center gap-2 bg-white/10 hover:bg-white/20 text-white font-black py-3 px-4 uppercase text-sm transition-colors shadow-sm rounded disabled:opacity-50 disabled:cursor-not-allowed border border-white/10"
+                                    className="flex-1 flex items-center justify-center gap-2 bg-white/10 hover:bg-white/20 active:scale-[0.98] text-white font-black py-3 px-4 uppercase text-sm transition-all duration-200 shadow-sm rounded-lg disabled:opacity-50 disabled:cursor-not-allowed border border-white/10 focus:outline-none focus-visible:ring-2 focus-visible:ring-white focus-visible:ring-offset-2 focus-visible:ring-offset-surface"
                                 >
-                                    {copied ? <Check size={18} /> : <Copy size={18} />}
-                                    Kopyala
+                                    {copied ? <Check size={18} className="text-green-400" /> : <Copy size={18} />}
+                                    {copied ? 'Kopyalandı' : 'Kopyala'}
                                 </button>
                                 <button
                                     onClick={handleDownload}
                                     disabled={isAnimating}
-                                    className="flex-1 flex items-center justify-center gap-2 bg-white/10 hover:bg-white/20 text-white font-black py-3 px-4 uppercase text-sm transition-colors shadow-sm rounded disabled:opacity-50 disabled:cursor-not-allowed border border-white/10"
+                                    className="flex-1 flex items-center justify-center gap-2 bg-white/10 hover:bg-white/20 active:scale-[0.98] text-white font-black py-3 px-4 uppercase text-sm transition-all duration-200 shadow-sm rounded-lg disabled:opacity-50 disabled:cursor-not-allowed border border-white/10 focus:outline-none focus-visible:ring-2 focus-visible:ring-white focus-visible:ring-offset-2 focus-visible:ring-offset-surface"
                                 >
                                     <Download size={18} />
                                     İndir
@@ -246,13 +268,21 @@ const Register: React.FC = () => {
                             <button
                                 onClick={handleRegister}
                                 disabled={!isSaved || loading || isAnimating}
-                                className="w-full flex justify-center py-4 px-4 shadow-lg text-sm font-black text-white bg-primary hover:bg-primary-hover transition-all uppercase tracking-wider disabled:opacity-50 disabled:cursor-not-allowed rounded"
+                                className="w-full flex justify-center items-center py-4 px-4 shadow-lg text-sm font-black text-white bg-primary hover:bg-primary-hover active:scale-[0.98] transition-all duration-200 uppercase tracking-wider disabled:opacity-50 disabled:cursor-not-allowed rounded-lg focus:outline-none focus-visible:ring-2 focus-visible:ring-white focus-visible:ring-offset-2 focus-visible:ring-offset-surface"
                             >
-                                {loading ? 'BAĞLANILIYOR...' : 'OTURUM AÇ'}
+                                {loading ? (
+                                    <>
+                                        <svg className="animate-spin -ml-1 mr-2 h-4 w-4 text-white" fill="none" viewBox="0 0 24 24">
+                                            <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                                            <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+                                        </svg>
+                                        BAĞLANILIYOR...
+                                    </>
+                                ) : 'OTURUM AÇ'}
                             </button>
 
-                            <p className="text-center text-xs text-gray-500 mt-4 font-medium uppercase tracking-wide">
-                                Lütfen GİZLİLİK ŞARTLARIMIZI okuyun. Yalnızca bir sayfadır.
+                            <p className="text-center text-xs text-gray-500 mt-4 font-medium">
+                                Lütfen <span className="uppercase tracking-wide">GİZLİLİK ŞARTLARIMIZI</span> okuyun. Yalnızca bir sayfadır.
                             </p>
                         </div>
                     )}

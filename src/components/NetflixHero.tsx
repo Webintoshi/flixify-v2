@@ -13,92 +13,103 @@ export function NetflixHero({ movie }: NetflixHeroProps) {
   const [showMore, setShowMore] = useState(false);
 
   return (
-    <div className="relative w-full h-[95vh] md:h-[100vh] overflow-hidden">
+    <div className="relative w-full h-[85vh] sm:h-[90vh] md:h-[95vh] lg:h-[100vh] overflow-hidden">
       {/* Backdrop Image with Gradient */}
       <div className="absolute inset-0">
         <img
           src={movie.backdrop}
-          alt={movie.title}
+          alt=""
           className="w-full h-full object-cover"
+          loading="eager"
         />
-        {/* Netflix-style gradient overlays */}
-        <div className="absolute inset-0 bg-gradient-to-r from-background via-background/60 to-transparent" />
-        <div className="absolute inset-0 bg-gradient-to-t from-background via-transparent to-transparent opacity-80" />
-        <div className="absolute inset-0 bg-gradient-to-b from-background/30 via-transparent to-transparent" />
+        {/* Netflix-style gradient overlays - Enhanced for better text readability */}
+        <div className="absolute inset-0 bg-gradient-to-r from-background via-background/70 to-transparent" />
+        <div className="absolute inset-0 bg-gradient-to-t from-background via-transparent to-transparent opacity-90" />
+        <div className="absolute inset-0 bg-gradient-to-b from-background/40 via-transparent to-transparent" />
       </div>
 
       {/* Content */}
-      <div className="absolute bottom-0 left-0 right-0 px-4 md:px-16 pb-24">
+      <div className="absolute inset-0 flex items-end">
+        <div className="w-full max-w-7xl mx-auto px-4 sm:px-6 lg:px-16 pb-20 sm:pb-24 lg:pb-32">
         <motion.div
           initial={{ opacity: 0, y: 30 }}
           animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.8 }}
+          transition={{ duration: 0.8, ease: [0.4, 0, 0.2, 1] }}
           className="max-w-2xl"
         >
-          {/* Logo or Title */}
-          <h1 className="text-5xl md:text-7xl lg:text-8xl font-black text-white mb-4 drop-shadow-2xl tracking-tight">
+          {/* Title */}
+          <h1 className="text-3xl sm:text-5xl md:text-6xl lg:text-7xl font-black text-white mb-4 drop-shadow-2xl tracking-tight leading-tight">
             {movie.title}
           </h1>
 
           {/* Metadata */}
-          <div className="flex items-center gap-3 mb-4 text-sm md:text-base">
+          <div className="flex flex-wrap items-center gap-x-3 gap-y-2 mb-4 text-sm md:text-base">
             <span className="text-green-400 font-bold">{movie.match}% Eşleşme</span>
+            <span className="text-foreground-muted hidden sm:inline" aria-hidden="true">·</span>
             <span className="text-foreground-muted">{movie.year}</span>
-            <span className="px-2 py-0.5 border border-foreground-muted/50 text-foreground-muted text-xs">{movie.duration}</span>
-            <span className="px-2 py-0.5 border border-foreground-muted/50 text-foreground-muted text-xs">HD</span>
+            <span className="text-foreground-muted hidden sm:inline" aria-hidden="true">·</span>
+            <span className="px-2 py-0.5 border border-foreground-muted/50 text-foreground-muted text-xs rounded">{movie.duration}</span>
+            <span className="px-2 py-0.5 border border-foreground-muted/50 text-foreground-muted text-xs rounded">HD</span>
           </div>
 
           {/* Genres */}
-          <div className="flex items-center gap-2 mb-6">
+          <div className="flex flex-wrap items-center gap-x-2 gap-y-1 mb-6">
             {movie.genres?.map((genre: string, idx: number) => (
-              <span key={genre} className="text-white/90">
+              <span key={genre} className="text-white/90 text-sm sm:text-base">
                 {genre}
-                {idx < (movie.genres?.length || 0) - 1 && <span className="mx-2 text-white/40">•</span>}
+                {idx < (movie.genres?.length || 0) - 1 && <span className="mx-2 text-white/40" aria-hidden="true">•</span>}
               </span>
             ))}
           </div>
 
           {/* Description */}
-          <p className="text-lg text-white/90 mb-8 line-clamp-3 drop-shadow-lg">
+          <p className="text-base sm:text-lg text-white/90 mb-6 sm:mb-8 line-clamp-3 drop-shadow-lg max-w-xl">
             {movie.description}
           </p>
 
           {/* Action Buttons */}
-          <div className="flex items-center gap-4">
-            <button className="flex items-center gap-3 px-8 py-3 bg-white text-black font-bold rounded hover:bg-white/90 transition-colors">
-              <Play size={28} fill="currentColor" />
-              <span className="text-lg">Oynat</span>
+          <div className="flex flex-wrap items-center gap-3 sm:gap-4">
+            <button 
+              className="flex items-center justify-center gap-2 sm:gap-3 px-6 sm:px-8 py-2.5 sm:py-3 bg-white text-black font-bold rounded-lg hover:bg-white/90 active:scale-95 transition-all duration-200 focus:outline-none focus-visible:ring-2 focus-visible:ring-white focus-visible:ring-offset-2 focus-visible:ring-offset-background"
+            >
+              <Play size={24} fill="currentColor" aria-hidden="true" />
+              <span className="text-base sm:text-lg">Oynat</span>
             </button>
 
             <button
               onClick={() => setShowMore(true)}
-              className="flex items-center gap-3 px-8 py-3 bg-white/20 backdrop-blur-sm text-white font-bold rounded hover:bg-white/30 transition-colors"
+              className="flex items-center justify-center gap-2 sm:gap-3 px-6 sm:px-8 py-2.5 sm:py-3 bg-white/20 backdrop-blur-sm text-white font-bold rounded-lg hover:bg-white/30 active:scale-95 transition-all duration-200 focus:outline-none focus-visible:ring-2 focus-visible:ring-white focus-visible:ring-offset-2 focus-visible:ring-offset-background"
             >
-              <Info size={28} />
-              <span className="text-lg">Daha Fazla Bilgi</span>
+              <Info size={24} aria-hidden="true" />
+              <span className="text-base sm:text-lg">Daha Fazla Bilgi</span>
             </button>
 
-            <button
-              onClick={() => setIsInList(!isInList)}
-              className={`p-3 rounded-full border-2 transition-all ${isInList ? 'bg-white border-white text-black' : 'border-white/50 text-white hover:border-white'
+            <div className="flex items-center gap-2 sm:gap-3 ml-auto sm:ml-0">
+              <button
+                onClick={() => setIsInList(!isInList)}
+                className={`p-2.5 sm:p-3 rounded-full border-2 transition-all duration-200 focus:outline-none focus-visible:ring-2 focus-visible:ring-white focus-visible:ring-offset-2 focus-visible:ring-offset-background ${
+                  isInList ? 'bg-white border-white text-black' : 'border-white/50 text-white hover:border-white'
                 }`}
-            >
-              {isInList ? <Check size={24} /> : <Plus size={24} />}
-            </button>
+                aria-label={isInList ? 'Listemden çıkar' : 'Listeme ekle'}
+              >
+                {isInList ? <Check size={22} /> : <Plus size={22} />}
+              </button>
 
-            <button
-              onClick={() => setIsMuted(!isMuted)}
-              className="p-3 rounded-full border-2 border-white/50 text-white hover:border-white transition-colors"
-            >
-              {isMuted ? <VolumeX size={24} /> : <Volume2 size={24} />}
-            </button>
+              <button
+                onClick={() => setIsMuted(!isMuted)}
+                className="p-2.5 sm:p-3 rounded-full border-2 border-white/50 text-white hover:border-white transition-all duration-200 focus:outline-none focus-visible:ring-2 focus-visible:ring-white focus-visible:ring-offset-2 focus-visible:ring-offset-background"
+                aria-label={isMuted ? 'Sesi aç' : 'Sesi kapat'}
+              >
+                {isMuted ? <VolumeX size={22} /> : <Volume2 size={22} />}
+              </button>
+            </div>
           </div>
         </motion.div>
+        </div>
       </div>
 
-      {/* Bottom Gradient */}
-      <div className="absolute bottom-0 left-0 right-0 h-64 bg-gradient-to-t from-background via-background/90 to-transparent" />
-      <div className="absolute bottom-0 left-0 right-0 h-12 bg-background" />
+      {/* Bottom Gradient - Smooth transition to content */}
+      <div className="absolute bottom-0 left-0 right-0 h-48 sm:h-64 bg-gradient-to-t from-background via-background/95 to-transparent pointer-events-none" />
 
       {/* More Info Modal */}
       <AnimatePresence>
