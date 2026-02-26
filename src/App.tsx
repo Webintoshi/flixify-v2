@@ -12,6 +12,7 @@ const AdminLogin = lazy(() => import('./pages/admin/AdminLogin'));
 const AdminDashboard = lazy(() => import('./pages/admin/Dashboard'));
 const AdminUsers = lazy(() => import('./pages/admin/Users'));
 const AdminPlans = lazy(() => import('./pages/admin/Plans'));
+const AdminBunnyCDN = lazy(() => import('./pages/admin/BunnyCDN'));
 const AdminSettings = lazy(() => import('./pages/admin/Settings'));
 
 // Page Loader
@@ -30,6 +31,7 @@ const AdminRoutes = () => (
           <Route path="dashboard" element={<AdminDashboard />} />
           <Route path="users" element={<AdminUsers />} />
           <Route path="plans" element={<AdminPlans />} />
+          <Route path="bunny" element={<AdminBunnyCDN />} />
           <Route path="settings" element={<AdminSettings />} />
           <Route path="*" element={<Navigate to="/admin/dashboard" replace />} />
         </Routes>

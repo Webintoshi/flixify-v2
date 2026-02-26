@@ -120,6 +120,7 @@ export function LandingPage() {
                         </button>
                     </motion.div>
                 </div>
+                </div>
             </section>
 
             {/* Marquee 1 */}

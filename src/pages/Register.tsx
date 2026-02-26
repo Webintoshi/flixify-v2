@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { supabase } from '../lib/supabase';
 import { useNavigate, Link } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
-import { Tv, Copy, Download, Check } from 'lucide-react';
+import { Copy, Download, Check } from 'lucide-react';
 
 const Register: React.FC = () => {
     const [accountNumber, setAccountNumber] = useState('');

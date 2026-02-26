@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { 
     LayoutDashboard, Users, Zap, Settings, LogOut, Menu, X, 
-    Tv, Bell
+    Tv, Bell, Cloud
 } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 import { useAdmin } from '../contexts/AdminContext';
@@ -29,6 +29,7 @@ export const AdminLayout: React.FC<AdminLayoutProps> = ({ children }) => {
         { name: 'Dashboard', href: '/admin/dashboard', icon: LayoutDashboard },
         { name: 'Kullanıcılar', href: '/admin/users', icon: Users },
         { name: 'Paketler', href: '/admin/plans', icon: Zap },
+        { name: 'Bunny CDN', href: '/admin/bunny', icon: Cloud },
         { name: 'Ayarlar', href: '/admin/settings', icon: Settings },
     ];
 
