@@ -41,10 +41,6 @@ const AuthActionsContext = createContext<{
 const profileCache = new Map<string, { profile: Profile; timestamp: number }>();
 const CACHE_DURATION = 5 * 60 * 1000;
 
-// Stable noop functions to prevent re-renders
-const noop = () => {};
-const asyncNoop = async () => {};
-
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
     const [authState, setAuthState] = useState({
         session: null as Session | null,

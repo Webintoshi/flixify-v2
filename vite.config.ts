@@ -9,14 +9,7 @@ const host = process.env.TAURI_DEV_HOST;
 // https://vite.dev/config/
 export default defineConfig(async () => ({
   plugins: [
-    react({
-      // React 18 optimizations
-      babel: {
-        plugins: [
-          ['@babel/plugin-transform-react-jsx', { runtime: 'automatic' }]
-        ]
-      }
-    }), 
+    react(), 
     tailwindcss(),
     // Bundle analyzer - only in analyze mode
     process.env.ANALYZE ? visualizer({ open: true }) : undefined

@@ -18,17 +18,7 @@ import {
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import type { Channel } from '../lib/iptvApi';
-
-// Content item for Movies/VOD
-interface ContentItem {
-  id: string;
-  name: string;
-  logo?: string;
-  group?: string;
-  url?: string;
-  type?: 'live' | 'movie' | 'series';
-  isLive?: boolean;
-}
+import type { ContentItem } from '../store/useContentStore';
 
 // Universal VideoPlayer props
 interface VideoPlayerProps {

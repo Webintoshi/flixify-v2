@@ -14,7 +14,7 @@ import { UpgradePrompt } from './UpgradePrompt';
 import type { Channel } from '../lib/iptvApi';
 
 import {
-  Search, Tv, Globe, Play, Grid3X3,
+  Search, Tv, Play, Grid3X3,
   List, ArrowLeft, Loader2, AlertCircle
 } from 'lucide-react';
 

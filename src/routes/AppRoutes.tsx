@@ -1,12 +1,12 @@
-import { Routes, Route, Navigate, useLocation, useNavigate } from 'react-router-dom';
-import { Suspense, lazy, useTransition, useCallback, useEffect, useRef } from 'react';
+import { Routes, Route, Navigate, useLocation } from 'react-router-dom';
+import { Suspense, lazy, useTransition, useEffect, useRef } from 'react';
 import { ProtectedRoute } from '../components/ProtectedRoute';
 import { useUser } from '../contexts/AuthContext';
 
 // Lazy load all page components with prefetch
 const LandingPage = lazy(() => import('../components/LandingPage').then(m => ({ default: m.LandingPage })));
 const HomePage = lazy(() => import('../components/HomePage').then(m => ({ default: m.HomePage })));
-const LiveTVPage = lazy(() => import('../components/LiveTVPage').then(m => ({ default: m.LivePage })));
+const LiveTVPage = lazy(() => import('../components/LiveTVPage').then(m => ({ default: m.LiveTVPage })));
 const MoviesPage = lazy(() => import('../components/MoviesPage').then(m => ({ default: m.MoviesPage })));
 const Login = lazy(() => import('../pages/Login'));
 const Register = lazy(() => import('../pages/Register'));
@@ -38,8 +38,7 @@ function PageLoader() {
 // Prefetch wrapper component
 function PrefetchWrapper({ children }: { children: React.ReactNode }) {
     const location = useLocation();
-    const navigate = useNavigate();
-    const prefetchTimeoutRef = useRef<NodeJS.Timeout>();
+    const prefetchTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
     useEffect(() => {
         // Prefetch likely next routes based on current route
@@ -90,12 +89,9 @@ function TransitionRoute({
     delay?: number;
 }) {
     const [isPending, startTransition] = useTransition();
-    const [showContent, setShowContent] = useTransition();
 
     useEffect(() => {
-        startTransition(() => {
-            setShowContent(() => {});
-        });
+        startTransition(() => {});
     }, []);
 
     if (isPending && delay > 0) {
