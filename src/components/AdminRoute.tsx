@@ -1,7 +1,6 @@
 import React from 'react';
-import { Navigate } from 'react-router-dom';
+import { Navigate, Outlet } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
-import { AdminLayout } from '../layouts/AdminLayout';
 
 export const AdminRoute: React.FC = () => {
     const { session, profile, loading } = useAuth();
@@ -15,16 +14,10 @@ export const AdminRoute: React.FC = () => {
     }
 
     if (!session) {
-        return <Navigate to="/giris-yap" replace />;
+        return <Navigate to="/admin/login" replace />;
     }
 
     if (!profile?.is_admin) {
-        console.log('AdminRoute: Access Denied', {
-            hasSession: !!session,
-            user: session?.user?.id,
-            isAdmin: profile?.is_admin,
-            profileData: profile
-        });
         return (
             <div className="min-h-screen bg-background flex flex-col items-center justify-center p-4">
                 <div className="bg-surface/90 p-8 rounded-2xl border border-red-500/20 text-center max-w-md shadow-2xl backdrop-blur-sm">
@@ -33,13 +26,13 @@ export const AdminRoute: React.FC = () => {
                     </div>
                     <h2 className="text-red-500 text-xl font-bold mb-4 uppercase tracking-wider">Yetkisiz Erişim</h2>
                     <p className="text-gray-300 mb-6 font-medium text-sm leading-relaxed">
-                        Admin paneline erişim yetkiniz bulunmuyor. Bu alanı görüntülemek için <strong className="text-white">Supabase</strong> veritabanınıza gidin, <strong className="text-primary">profiles</strong> tablosunu açın ve kendi hesabınızın <strong className="text-primary">is_admin</strong> (veya yetkili) sütununu <strong className="text-white">TRUE</strong> olarak kaydedin.
+                        Admin paneline erişim yetkiniz bulunmuyor.
                     </p>
                     <button
-                        onClick={() => window.location.href = 'https://flixify.pro'}
+                        onClick={() => window.location.href = '/'}
                         className="bg-primary hover:bg-primary-hover text-white px-6 py-2.5 rounded font-black transition-all uppercase tracking-wider text-sm shadow-lg w-full"
                     >
-                        Uygulamaya Geri Dön
+                        Ana Sayfaya Dön
                     </button>
                 </div>
             </div>
@@ -47,9 +40,10 @@ export const AdminRoute: React.FC = () => {
     }
 
     if (profile.is_banned) {
-        console.log('AdminRoute: User is Banned');
         return <Navigate to="/" replace />;
     }
 
-    return <AdminLayout />;
+    return <Outlet />;
 };
+
+export default AdminRoute;

@@ -13,10 +13,10 @@ export const AdminLayout: React.FC = () => {
     };
 
     const navigation = [
-        { name: 'Dashboard', href: '/', icon: LayoutDashboard },
-        { name: 'Kullanıcılar', href: '/users', icon: Users },
-        { name: 'Paketler', href: '/plans', icon: Zap },
-        { name: 'Ayarlar', href: '/settings', icon: Settings },
+        { name: 'Dashboard', href: '/admin/dashboard', icon: LayoutDashboard },
+        { name: 'Kullanıcılar', href: '/admin/users', icon: Users },
+        { name: 'Paketler', href: '/admin/plans', icon: Zap },
+        { name: 'Ayarlar', href: '/admin/settings', icon: Settings },
     ];
 
     return (
@@ -56,7 +56,7 @@ export const AdminLayout: React.FC = () => {
                         <h3 className="text-[10px] font-black uppercase tracking-[0.2em] text-gray-500 mb-4">Ana Menü</h3>
                         <nav className="space-y-2">
                             {navigation.map((item) => {
-                                const isActive = pathname === item.href || (item.href !== '/webintosh' && pathname.startsWith(item.href));
+                                const isActive = pathname === item.href || (item.href !== '/admin' && pathname.startsWith(item.href));
                                 return (
                                     <Link
                                         key={item.name}

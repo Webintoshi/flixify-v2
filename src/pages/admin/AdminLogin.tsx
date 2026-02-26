@@ -15,7 +15,7 @@ const AdminLogin: React.FC = () => {
 
     // If already logged in, go to dashboard
     if (session) {
-        navigate('/');
+        navigate('/admin/dashboard');
         return null;
     }
 
