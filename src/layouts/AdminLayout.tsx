@@ -1,15 +1,28 @@
 import React, { useState } from 'react';
-import { Outlet, Link, useLocation } from 'react-router-dom';
-import { LayoutDashboard, Users, Zap, Settings, LogOut, Menu, X, Tv } from 'lucide-react';
+import { Link, useLocation, useNavigate } from 'react-router-dom';
+import { 
+    LayoutDashboard, Users, Zap, Settings, LogOut, Menu, X, 
+    Tv, Bell
+} from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
+import { useAdmin } from '../contexts/AdminContext';
 
-export const AdminLayout: React.FC = () => {
+interface AdminLayoutProps {
+    children: React.ReactNode;
+}
+
+export const AdminLayout: React.FC<AdminLayoutProps> = ({ children }) => {
     const { pathname } = useLocation();
+    const navigate = useNavigate();
     const { signOut, profile } = useAuth();
+    const { notifications, unreadCount, clearNotifications } = useAdmin();
     const [sidebarOpen, setSidebarOpen] = useState(false);
+    const [showNotifications, setShowNotifications] = useState(false);
+
 
     const handleLogout = async () => {
         await signOut();
+        navigate('/admin/login');
     };
 
     const navigation = [
@@ -18,6 +31,11 @@ export const AdminLayout: React.FC = () => {
         { name: 'Paketler', href: '/admin/plans', icon: Zap },
         { name: 'Ayarlar', href: '/admin/settings', icon: Settings },
     ];
+
+    const isActive = (href: string) => {
+        if (href === '/admin/dashboard') return pathname === href;
+        return pathname.startsWith(href);
+    };
 
     return (
         <div className="min-h-screen bg-[#0a0a0a] text-white flex overflow-hidden selection:bg-primary/30">
@@ -37,70 +55,82 @@ export const AdminLayout: React.FC = () => {
                 flex flex-col
                 ${sidebarOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'}
             `}>
-                <div className="h-20 flex items-center justify-between px-8 border-b border-white/10">
-                    <a href="https://flixify.pro" className="flex items-center gap-3 text-primary hover:opacity-80 transition-opacity">
+                {/* Logo */}
+                <div className="h-16 flex items-center justify-between px-6 border-b border-white/5">
+                    <Link to="/admin/dashboard" className="flex items-center gap-3 text-primary hover:opacity-80 transition-opacity">
                         <div className="p-2 bg-primary/10 rounded-xl border border-primary/20">
-                            <Tv size={24} className="text-primary" />
+                            <Tv size={20} className="text-primary" />
                         </div>
-                        <span className="text-xl font-black text-white tracking-tight">
-                            FLIXIFY <span className="text-[10px] bg-primary text-white px-1.5 py-0.5 rounded ml-1 align-top tracking-normal font-bold">ADMIN</span>
+                        <span className="text-lg font-black text-white tracking-tight">
+                            FLIXIFY <span className="text-[9px] bg-primary text-white px-1.5 py-0.5 rounded ml-1 align-top tracking-normal font-bold">ADMIN</span>
                         </span>
-                    </a>
+                    </Link>
                     <button onClick={() => setSidebarOpen(false)} className="lg:hidden text-gray-400 hover:text-white">
-                        <X size={24} />
+                        <X size={20} />
                     </button>
                 </div>
 
-                <div className="flex-1 py-8 px-4 overflow-y-auto custom-scrollbar">
-                    <div className="mb-8 px-4">
-                        <h3 className="text-[10px] font-black uppercase tracking-[0.2em] text-gray-500 mb-4">Ana Menü</h3>
-                        <nav className="space-y-2">
-                            {navigation.map((item) => {
-                                const isActive = pathname === item.href || (item.href !== '/admin' && pathname.startsWith(item.href));
-                                return (
-                                    <Link
-                                        key={item.name}
-                                        to={item.href}
-                                        onClick={() => setSidebarOpen(false)}
-                                        className={`
-                                            flex items-center gap-3 px-4 py-3 rounded-2xl transition-all duration-300 group
-                                            ${isActive
-                                                ? 'bg-primary/10 border border-primary/20 text-white shadow-lg shadow-primary/5'
-                                                : 'text-gray-400 border border-transparent hover:bg-white/5 hover:text-white hover:border-white/5'}
-                                        `}
-                                    >
-                                        <item.icon
-                                            size={20}
-                                            className={`transition-colors ${isActive ? 'text-primary' : 'group-hover:text-gray-300'}`}
-                                        />
-                                        <span className="font-bold tracking-wide text-sm">{item.name}</span>
-                                        {isActive && (
-                                            <div className="ml-auto w-1.5 h-1.5 rounded-full bg-primary" />
-                                        )}
-                                    </Link>
-                                );
-                            })}
+                {/* Navigation */}
+                <div className="flex-1 py-6 px-4 overflow-y-auto custom-scrollbar">
+                    <div className="mb-8">
+                        <h3 className="text-[10px] font-black uppercase tracking-[0.2em] text-gray-500 mb-4 px-3">Ana Menü</h3>
+                        <nav className="space-y-1">
+                            {navigation.map((item) => (
+                                <Link
+                                    key={item.name}
+                                    to={item.href}
+                                    onClick={() => setSidebarOpen(false)}
+                                    className={`
+                                        flex items-center gap-3 px-4 py-3 rounded-xl transition-all duration-200 group
+                                        ${isActive(item.href)
+                                            ? 'bg-primary text-white shadow-lg shadow-primary/20'
+                                            : 'text-gray-400 hover:bg-white/5 hover:text-white'}
+                                    `}
+                                >
+                                    <item.icon size={18} className={isActive(item.href) ? 'text-white' : 'group-hover:text-white'} />
+                                    <span className="font-bold tracking-wide text-sm">{item.name}</span>
+                                    {isActive(item.href) && (
+                                        <div className="ml-auto w-1.5 h-1.5 rounded-full bg-white" />
+                                    )}
+                                </Link>
+                            ))}
                         </nav>
                     </div>
-                </div>
 
-                <div className="p-4 border-t border-white/10 bg-surface/20">
-                    <div className="flex items-center gap-3 px-4 py-3 mb-2 bg-black/40 rounded-2xl border border-white/5">
-                        <div className="w-10 h-10 rounded-xl bg-primary/20 flex items-center justify-center text-primary font-bold border border-primary/20">
-                            {profile?.account_number?.substring(0, 1)}
-                        </div>
-                        <div className="flex-1 overflow-hidden">
-                            <div className="text-xs font-black truncate">Aktif Yönetici</div>
-                            <div className="text-[10px] text-gray-500 font-mono tracking-wider truncate">
-                                {profile?.account_number}
+                    {/* Quick Stats */}
+                    <div className="px-3">
+                        <h3 className="text-[10px] font-black uppercase tracking-[0.2em] text-gray-500 mb-4">Hızlı Bakış</h3>
+                        <div className="space-y-2">
+                            <div className="p-3 bg-black/40 rounded-xl border border-white/5">
+                                <div className="text-[10px] text-gray-500 uppercase tracking-wider mb-1">Sistem Durumu</div>
+                                <div className="flex items-center gap-2">
+                                    <div className="w-2 h-2 rounded-full bg-green-500 animate-pulse" />
+                                    <span className="text-xs font-bold text-green-500">Çevrimiçi</span>
+                                </div>
                             </div>
                         </div>
                     </div>
+                </div>
+
+                {/* User Section */}
+                <div className="p-4 border-t border-white/5">
+                    <div className="flex items-center gap-3 p-3 bg-black/40 rounded-xl border border-white/5 mb-3">
+                        <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-primary/30 to-primary/10 border border-primary/20 flex items-center justify-center text-primary font-bold">
+                            {profile?.account_number?.substring(0, 1) || 'A'}
+                        </div>
+                        <div className="flex-1 min-w-0">
+                            <div className="text-xs font-black truncate">Yönetici</div>
+                            <div className="text-[10px] text-gray-500 font-mono tracking-wider truncate">
+                                {profile?.account_number || 'Admin'}
+                            </div>
+                        </div>
+                    </div>
+                    
                     <button
                         onClick={handleLogout}
-                        className="w-full flex items-center justify-center gap-2 px-4 py-3 bg-red-500/10 hover:bg-red-500/20 text-red-500 rounded-2xl transition-all text-sm font-bold border border-red-500/20 group uppercase tracking-widest mt-2"
+                        className="w-full flex items-center justify-center gap-2 px-4 py-3 bg-red-500/10 hover:bg-red-500/20 text-red-500 rounded-xl transition-all text-xs font-black uppercase tracking-widest border border-red-500/20"
                     >
-                        <LogOut size={16} className="group-hover:-translate-x-1 transition-transform" />
+                        <LogOut size={14} />
                         Çıkış Yap
                     </button>
                 </div>
@@ -109,25 +139,107 @@ export const AdminLayout: React.FC = () => {
             {/* Main Content */}
             <main className="flex-1 flex flex-col min-h-screen overflow-hidden relative">
                 {/* Header */}
-                <header className="h-20 flex items-center justify-between px-6 lg:px-12 backdrop-blur-md bg-black/20 border-b border-white/5 sticky top-0 z-30">
+                <header className="h-16 flex items-center justify-between px-6 border-b border-white/5 sticky top-0 z-30 bg-[#0a0a0a]/80 backdrop-blur-xl">
                     <div className="flex items-center gap-4">
                         <button
                             onClick={() => setSidebarOpen(true)}
                             className="p-2 -ml-2 text-gray-400 hover:text-white lg:hidden rounded-lg hover:bg-white/5 transition-colors"
                         >
-                            <Menu size={24} />
+                            <Menu size={20} />
                         </button>
+                        
+                        {/* Breadcrumb */}
+                        <nav className="hidden md:flex items-center gap-2 text-xs text-gray-500">
+                            <span className="font-bold uppercase tracking-wider">Admin</span>
+                            <span>/</span>
+                            <span className="text-white font-bold">
+                                {navigation.find(n => isActive(n.href))?.name || 'Dashboard'}
+                            </span>
+                        </nav>
                     </div>
-                    <div className="flex items-center gap-4">
-                        <a href="https://flixify.pro" className="text-xs font-bold text-gray-400 hover:text-white uppercase tracking-widest transition-colors flex items-center gap-2 bg-white/5 px-4 py-2 rounded-xl hover:bg-white/10 border border-white/5">
-                            Platforma Dön
+
+                    <div className="flex items-center gap-3">
+                        {/* Notifications */}
+                        <div className="relative">
+                            <button
+                                onClick={() => setShowNotifications(!showNotifications)}
+                                className="relative p-2.5 text-gray-400 hover:text-white hover:bg-white/5 rounded-xl transition-colors"
+                            >
+                                <Bell size={18} />
+                                {unreadCount > 0 && (
+                                    <span className="absolute top-1 right-1 w-4 h-4 bg-primary rounded-full text-[9px] font-black flex items-center justify-center">
+                                        {unreadCount}
+                                    </span>
+                                )}
+                            </button>
+                            
+                            {/* Notifications Dropdown */}
+                            {showNotifications && (
+                                <>
+                                    <div 
+                                        className="fixed inset-0 z-40" 
+                                        onClick={() => setShowNotifications(false)}
+                                    />
+                                    <div className="absolute right-0 top-full mt-2 w-80 bg-surface/95 backdrop-blur-2xl border border-white/10 rounded-2xl shadow-2xl z-50 overflow-hidden">
+                                        <div className="p-4 border-b border-white/5 flex items-center justify-between">
+                                            <span className="font-black uppercase tracking-wider text-sm">Bildirimler</span>
+                                            {notifications.length > 0 && (
+                                                <button 
+                                                    onClick={clearNotifications}
+                                                    className="text-[10px] text-gray-500 hover:text-white uppercase"
+                                                >
+                                                    Temizle
+                                                </button>
+                                            )}
+                                        </div>
+                                        <div className="max-h-64 overflow-y-auto">
+                                            {notifications.length > 0 ? (
+                                                notifications.slice(0, 5).map((notif) => (
+                                                    <div 
+                                                        key={notif.id}
+                                                        className={`p-4 border-b border-white/5 text-xs ${!notif.read ? 'bg-white/5' : ''}`}
+                                                    >
+                                                        <div className={`font-bold mb-1 ${
+                                                            notif.type === 'error' ? 'text-red-400' :
+                                                            notif.type === 'success' ? 'text-green-400' :
+                                                            notif.type === 'warning' ? 'text-yellow-400' :
+                                                            'text-blue-400'
+                                                        }`}>
+                                                            {notif.type === 'error' ? 'Hata' :
+                                                             notif.type === 'success' ? 'Başarılı' :
+                                                             notif.type === 'warning' ? 'Uyarı' : 'Bilgi'}
+                                                        </div>
+                                                        <div className="text-gray-300">{notif.message}</div>
+                                                        <div className="text-[10px] text-gray-500 mt-2">
+                                                            {new Date(notif.timestamp).toLocaleTimeString('tr-TR')}
+                                                        </div>
+                                                    </div>
+                                                ))
+                                            ) : (
+                                                <div className="p-8 text-center text-gray-500 text-xs">
+                                                    Bildirim yok
+                                                </div>
+                                            )}
+                                        </div>
+                                    </div>
+                                </>
+                            )}
+                        </div>
+
+                        {/* Back to Site */}
+                        <a 
+                            href="/" 
+                            className="hidden md:flex items-center gap-2 px-4 py-2 text-xs font-bold text-gray-400 hover:text-white uppercase tracking-wider transition-colors hover:bg-white/5 rounded-xl"
+                        >
+                            ← Siteye Dön
                         </a>
                     </div>
                 </header>
 
-                <div className="flex-1 overflow-y-auto custom-scrollbar p-6 md:p-8 lg:p-12 relative">
-                    <div className="absolute top-0 right-0 w-[500px] h-[500px] bg-primary/10 rounded-full blur-[120px] -translate-y-1/2 translate-x-1/2 -z-10 pointer-events-none" />
-                    <Outlet />
+                {/* Page Content */}
+                <div className="flex-1 overflow-y-auto custom-scrollbar p-6 lg:p-8 relative">
+                    <div className="absolute top-0 right-0 w-[400px] h-[400px] bg-primary/5 rounded-full blur-[150px] -translate-y-1/2 translate-x-1/2 -z-10 pointer-events-none" />
+                    {children}
                 </div>
             </main>
         </div>
