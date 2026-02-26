@@ -29,3 +29,7 @@ dist-ssr
 *.sln
 *.sw?
 .vercel
+
+# Large media files
+public/playlist.m3u
+*.m3u
