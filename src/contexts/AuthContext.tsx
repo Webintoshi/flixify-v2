@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useEffect, useState, useCallback, useRef } from 'react';
+import React, { createContext, useContext, useEffect, useState, useCallback, useRef, useMemo } from 'react';
 import { Session, User } from '@supabase/supabase-js';
 import { supabase } from '../lib/supabase';
 
@@ -12,129 +12,131 @@ export interface Profile {
     created_at: string;
 }
 
-interface AuthContextType {
+// Split context into smaller pieces to prevent unnecessary re-renders
+const AuthStateContext = createContext<{
     session: Session | null;
     user: User | null;
-    profile: Profile | null;
     loading: boolean;
-    signOut: () => Promise<void>;
-    refreshProfile: () => Promise<void>;
-}
-
-const AuthContext = createContext<AuthContextType>({
+}>({
     session: null,
     user: null,
-    profile: null,
     loading: true,
-    signOut: async () => { },
-    refreshProfile: async () => { },
 });
 
-// Cache profile data to avoid repeated fetches
+const ProfileContext = createContext<{
+    profile: Profile | null;
+    refreshProfile: () => Promise<void>;
+}>({
+    profile: null,
+    refreshProfile: async () => {},
+});
+
+const AuthActionsContext = createContext<{
+    signOut: () => Promise<void>;
+}>({
+    signOut: async () => {},
+});
+
+// Cache profile data
 const profileCache = new Map<string, { profile: Profile; timestamp: number }>();
-const CACHE_DURATION = 5 * 60 * 1000; // 5 minutes
+const CACHE_DURATION = 5 * 60 * 1000;
+
+// Stable noop functions to prevent re-renders
+const noop = () => {};
+const asyncNoop = async () => {};
 
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-    const [session, setSession] = useState<Session | null>(null);
-    const [user, setUser] = useState<User | null>(null);
+    const [authState, setAuthState] = useState({
+        session: null as Session | null,
+        user: null as User | null,
+        loading: true,
+    });
     const [profile, setProfile] = useState<Profile | null>(null);
-    const [loading, setLoading] = useState(true);
     const isFetchingRef = useRef(false);
+    const initialLoadDone = useRef(false);
 
+    // Stable fetchProfile function
     const fetchProfile = useCallback(async (userId: string, forceRefresh = false) => {
-        // Prevent concurrent fetches
         if (isFetchingRef.current && !forceRefresh) return;
         isFetchingRef.current = true;
 
         try {
-            // Check cache first
             const cached = profileCache.get(userId);
             if (!forceRefresh && cached && Date.now() - cached.timestamp < CACHE_DURATION) {
-                console.log('[AUTH] Using cached profile');
                 setProfile(cached.profile);
-                setLoading(false);
                 isFetchingRef.current = false;
                 return;
             }
 
-            console.log('[AUTH] Fetching profile for userId:', userId);
-            
-            // Shorter timeout - 4 seconds is plenty for a simple query
-            const fetchPromise = supabase
+            const { data, error } = await supabase
                 .from('profiles')
                 .select('*')
                 .eq('id', userId)
                 .single();
 
-            const timeoutPromise = new Promise((_, reject) => {
-                setTimeout(() => reject(new Error('Profile fetch timeout')), 4000);
-            });
-
-            const { data, error } = await Promise.race([fetchPromise, timeoutPromise]) as any;
-
-            if (error) {
-                console.error('[AUTH] Profile fetch error:', error);
-                setProfile(null);
-            } else {
-                console.log('[AUTH] Profile fetched successfully');
+            if (!error && data) {
                 setProfile(data);
-                // Update cache
                 profileCache.set(userId, { profile: data, timestamp: Date.now() });
+            } else {
+                setProfile(null);
             }
         } catch (err) {
-            console.error('[AUTH] Unexpected error fetching profile:', err);
             setProfile(null);
         } finally {
-            setLoading(false);
             isFetchingRef.current = false;
         }
     }, []);
 
-    const refreshProfile = useCallback(async () => {
-        if (user?.id) {
-            await fetchProfile(user.id, true);
+    // Stable signOut function - NEVER changes reference
+    const signOut = useCallback(async () => {
+        if (authState.user?.id) {
+            profileCache.delete(authState.user.id);
         }
-    }, [user?.id, fetchProfile]);
+        await supabase.auth.signOut();
+    }, [authState.user?.id]);
 
+    // Stable refreshProfile function
+    const refreshProfile = useCallback(async () => {
+        if (authState.user?.id) {
+            await fetchProfile(authState.user.id, true);
+        }
+    }, [authState.user?.id, fetchProfile]);
+
+    // Auth state listener - only runs once
     useEffect(() => {
         let mounted = true;
 
-        // Initial session check
-        supabase.auth.getSession().then(({ data: { session }, error }) => {
+        // Check initial session
+        supabase.auth.getSession().then(({ data: { session } }) => {
             if (!mounted) return;
             
-            if (error) {
-                console.error('[AUTH] Session error:', error);
-                setLoading(false);
-                return;
-            }
-
-            setSession(session);
-            setUser(session?.user ?? null);
+            setAuthState({
+                session,
+                user: session?.user ?? null,
+                loading: false,
+            });
+            
+            initialLoadDone.current = true;
 
             if (session?.user) {
                 fetchProfile(session.user.id);
-            } else {
-                setLoading(false);
             }
-        }).catch((err) => {
-            if (!mounted) return;
-            console.error('[AUTH] Session fetch error:', err);
-            setLoading(false);
         });
 
-        // Listen for auth changes
-        const { data: { subscription } } = supabase.auth.onAuthStateChange(async (_event, session) => {
+        // Subscribe to auth changes
+        const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
             if (!mounted) return;
             
-            setSession(session);
-            setUser(session?.user ?? null);
-            
-            if (session?.user) {
-                await fetchProfile(session.user.id);
-            } else {
+            setAuthState(prev => ({
+                ...prev,
+                session,
+                user: session?.user ?? null,
+            }));
+
+            if (session?.user && event !== 'TOKEN_REFRESHED') {
+                fetchProfile(session.user.id);
+            } else if (!session) {
                 setProfile(null);
-                setLoading(false);
             }
         });
 
@@ -144,44 +146,47 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         };
     }, [fetchProfile]);
 
-    const signOut = useCallback(async () => {
-        // Clear cache on sign out
-        if (user?.id) {
-            profileCache.delete(user.id);
-        }
-        await supabase.auth.signOut();
-    }, [user?.id]);
-
-    // Memoized context value to prevent unnecessary re-renders
-    const value = React.useMemo(() => ({
-        session,
-        user,
+    // Memoized state objects to prevent re-renders
+    const authStateValue = useMemo(() => authState, [authState.session, authState.user, authState.loading]);
+    
+    const profileValue = useMemo(() => ({
         profile,
-        loading,
-        signOut,
         refreshProfile,
-    }), [session, user, profile, loading, signOut, refreshProfile]);
+    }), [profile, refreshProfile]);
+
+    const actionsValue = useMemo(() => ({
+        signOut,
+    }), [signOut]);
 
     return (
-        <AuthContext.Provider value={value}>
-            {children}
-        </AuthContext.Provider>
+        <AuthStateContext.Provider value={authStateValue}>
+            <ProfileContext.Provider value={profileValue}>
+                <AuthActionsContext.Provider value={actionsValue}>
+                    {children}
+                </AuthActionsContext.Provider>
+            </ProfileContext.Provider>
+        </AuthStateContext.Provider>
     );
 };
 
-// Optimized hook with selector support
+// Optimized hooks - components only re-render when their specific data changes
 export const useAuth = () => {
-    const context = useContext(AuthContext);
-    if (context === undefined) {
-        throw new Error('useAuth must be used within an AuthProvider');
-    }
-    return context;
+    const state = useContext(AuthStateContext);
+    const profile = useContext(ProfileContext);
+    const actions = useContext(AuthActionsContext);
+    
+    return useMemo(() => ({
+        ...state,
+        ...profile,
+        ...actions,
+    }), [state, profile, actions]);
 };
 
-// Selector hooks for granular updates
-export const useUser = () => useAuth().user;
-export const useProfile = () => useAuth().profile;
-export const useIsLoading = () => useAuth().loading;
-export const useSignOut = () => useAuth().signOut;
+// Granular hooks - use these for better performance
+export const useUser = () => useContext(AuthStateContext).user;
+export const useProfile = () => useContext(ProfileContext).profile;
+export const useIsLoading = () => useContext(AuthStateContext).loading;
+export const useSignOut = () => useContext(AuthActionsContext).signOut;
+export const useRefreshProfile = () => useContext(ProfileContext).refreshProfile;
 
-export default AuthContext;
+export default AuthProvider;

@@ -1,12 +1,12 @@
 /**
- * FLIXIFY IPTV STORE
+ * FLIXIFY IPTV STORE - Performance Optimized
  * 
- * Yeni API ile entegre, performans optimize edilmiş Zustand store.
- * Mevcut tema (LiveTVPage) ile uyumlu çalışır.
+ * Uses selective subscriptions to prevent unnecessary re-renders
  */
 
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
+import { immer } from 'zustand/middleware/immer';
 import {
   fetchPlaylist,
   generateStreamToken,
@@ -48,111 +48,142 @@ interface IPTVState {
   loadMore: () => void;
   clearError: () => void;
   
-  // Derived
-  displayedChannels: () => Channel[];
+  // Computed
+  getDisplayedChannels: () => Channel[];
+  getChannelsByCountry: (countryCode: string) => Channel[];
 }
 
 export const useIPTVStore = create<IPTVState>()(
-  persist(
-    (set, get) => ({
-      // Initial State
-      channels: [],
-      countries: [],
-      filteredChannels: [],
-      selectedCountry: null,
-      searchQuery: '',
-      selectedChannel: null,
-      streamToken: null,
-      streamUrl: null,
-      isLoading: false,
-      isLoadingMore: false,
-      error: null,
-      page: 1,
-      itemsPerPage: 50,
-      hasMore: false,
+  immer(
+    persist(
+      (set, get) => ({
+        // Initial State
+        channels: [],
+        countries: [],
+        filteredChannels: [],
+        selectedCountry: null,
+        searchQuery: '',
+        selectedChannel: null,
+        streamToken: null,
+        streamUrl: null,
+        isLoading: false,
+        isLoadingMore: false,
+        error: null,
+        page: 1,
+        itemsPerPage: 50,
+        hasMore: false,
 
-      // Load Playlist from API
-      loadPlaylist: async () => {
-        const state = get();
-        if (state.isLoading) return;
+        // Load Playlist
+        loadPlaylist: async () => {
+          const state = get();
+          if (state.isLoading) return;
 
-        set({ isLoading: true, error: null });
+          set(draft => { draft.isLoading = true; draft.error = null; });
 
-        try {
-          const response = await fetchPlaylist();
+          try {
+            const response = await fetchPlaylist();
+            
+            const filtered = filterChannels(
+              response.channels,
+              state.searchQuery,
+              state.selectedCountry || undefined
+            );
+
+            set(draft => {
+              draft.channels = response.channels;
+              draft.countries = response.countries;
+              draft.filteredChannels = filtered;
+              draft.hasMore = filtered.length > draft.itemsPerPage;
+              draft.isLoading = false;
+            });
+          } catch (error: any) {
+            set(draft => {
+              draft.error = error.message || 'Failed to load playlist';
+              draft.isLoading = false;
+            });
+          }
+        },
+
+        // Select Country
+        selectCountry: (countryCode) => {
+          const { channels, searchQuery, itemsPerPage } = get();
           
           const filtered = filterChannels(
-            response.channels,
-            state.searchQuery,
-            state.selectedCountry || undefined
+            channels,
+            searchQuery,
+            countryCode || undefined
           );
 
-          set({
-            channels: response.channels,
-            countries: response.countries,
-            filteredChannels: filtered,
-            hasMore: filtered.length > state.itemsPerPage,
-            isLoading: false,
+          set(draft => {
+            draft.selectedCountry = countryCode;
+            draft.filteredChannels = filtered;
+            draft.page = 1;
+            draft.hasMore = filtered.length > itemsPerPage;
           });
-        } catch (error: any) {
-          console.error('[IPTV Store] Load playlist error:', error);
-          set({
-            error: error.message || 'Failed to load playlist',
-            isLoading: false,
+        },
+
+        // Set Search Query
+        setSearchQuery: (query) => {
+          const { channels, selectedCountry, itemsPerPage } = get();
+          
+          const filtered = filterChannels(
+            channels,
+            query,
+            selectedCountry || undefined
+          );
+
+          set(draft => {
+            draft.searchQuery = query;
+            draft.filteredChannels = filtered;
+            draft.page = 1;
+            draft.hasMore = filtered.length > itemsPerPage;
           });
-        }
-      },
+        },
 
-      // Select Country
-      selectCountry: (countryCode) => {
-        const { channels, searchQuery, itemsPerPage } = get();
-        
-        const filtered = filterChannels(
-          channels,
-          searchQuery,
-          countryCode || undefined
-        );
+        // Select Channel (Start Stream)
+        selectChannel: async (channel) => {
+          if (!channel) {
+            set(draft => {
+              draft.selectedChannel = null;
+              draft.streamToken = null;
+              draft.streamUrl = null;
+            });
+            return;
+          }
 
-        set({
-          selectedCountry: countryCode,
-          filteredChannels: filtered,
-          page: 1,
-          hasMore: filtered.length > itemsPerPage,
-        });
-      },
+          set(draft => { draft.isLoading = true; draft.error = null; });
 
-      // Set Search Query
-      setSearchQuery: (query) => {
-        const { channels, selectedCountry, itemsPerPage } = get();
-        
-        const filtered = filterChannels(
-          channels,
-          query,
-          selectedCountry || undefined
-        );
+          try {
+            const tokenResponse = await generateStreamToken(channel.id);
+            const proxyUrl = getProxyStreamUrl(channel.id, tokenResponse.token);
 
-        set({
-          searchQuery: query,
-          filteredChannels: filtered,
-          page: 1,
-          hasMore: filtered.length > itemsPerPage,
-        });
-      },
+            set(draft => {
+              draft.selectedChannel = channel;
+              draft.streamToken = tokenResponse.token;
+              draft.streamUrl = proxyUrl;
+              draft.isLoading = false;
+            });
 
-      // Select Channel (Start Stream)
-      selectChannel: async (channel) => {
-        if (!channel) {
-          set({ selectedChannel: null, streamToken: null, streamUrl: null });
-          return;
-        }
+            // Start heartbeat
+            startHeartbeat(tokenResponse.token);
 
-        set({ isLoading: true, error: null });
+          } catch (error: any) {
+            set(draft => {
+              draft.error = error.message || 'Failed to start stream';
+              draft.isLoading = false;
+              draft.selectedChannel = null;
+              draft.streamToken = null;
+              draft.streamUrl = null;
+            });
+          }
+        },
 
-        try {
-          // Önceki stream'i temizle
+        // Close Player
+        closePlayer: () => {
           const { streamToken } = get();
+          
           if (streamToken) {
-            // Cleanup previous session (async, no await)
+            stopHeartbeat();
             fetch('/api/stream/end', {
               method: 'POST',
               headers: { 'Content-Type': 'application/json' },
@@ -160,82 +191,45 @@ export const useIPTVStore = create<IPTVState>()(
             }).catch(() => {});
           }
 
-          // Yeni token al
-          const tokenResponse = await generateStreamToken(channel.id);
-          const proxyUrl = getProxyStreamUrl(channel.id, tokenResponse.token);
-
-          set({
-            selectedChannel: channel,
-            streamToken: tokenResponse.token,
-            streamUrl: proxyUrl,
-            isLoading: false,
+          set(draft => {
+            draft.selectedChannel = null;
+            draft.streamToken = null;
+            draft.streamUrl = null;
           });
+        },
 
-          // Heartbeat başlat (30 saniyede bir)
-          startHeartbeat(tokenResponse.token);
-
-        } catch (error: any) {
-          console.error('[IPTV Store] Select channel error:', error);
-          set({
-            error: error.message || 'Failed to start stream',
-            isLoading: false,
-            selectedChannel: null,
-            streamToken: null,
-            streamUrl: null,
+        // Load More (Pagination)
+        loadMore: () => {
+          const { filteredChannels, itemsPerPage } = get();
+          set(draft => {
+            draft.page += 1;
+            draft.hasMore = (draft.page * itemsPerPage) < filteredChannels.length;
           });
-        }
-      },
+        },
 
-      // Close Player
-      closePlayer: () => {
-        const { streamToken } = get();
-        
-        if (streamToken) {
-          stopHeartbeat();
-          
-          // Session'ı sonlandır
-          fetch('/api/stream/end', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ sessionToken: streamToken }),
-          }).catch(() => {});
-        }
+        // Clear Error
+        clearError: () => set(draft => { draft.error = null; }),
 
-        set({
-          selectedChannel: null,
-          streamToken: null,
-          streamUrl: null,
-        });
-      },
+        // Get Displayed Channels
+        getDisplayedChannels: () => {
+          const { filteredChannels, page, itemsPerPage } = get();
+          return filteredChannels.slice(0, page * itemsPerPage);
+        },
 
-      // Load More (Pagination)
-      loadMore: () => {
-        const { page, itemsPerPage, filteredChannels } = get();
-        const newPage = page + 1;
-        const displayedCount = newPage * itemsPerPage;
-        
-        set({
-          page: newPage,
-          hasMore: displayedCount < filteredChannels.length,
-        });
-      },
-
-      // Clear Error
-      clearError: () => set({ error: null }),
-
-      // Get Displayed Channels (computed)
-      displayedChannels: () => {
-        const { filteredChannels, page, itemsPerPage } = get();
-        return filteredChannels.slice(0, page * itemsPerPage);
-      },
-    }),
-    {
-      name: 'flixify-iptv-storage',
-      partialize: (state) => ({
-        channels: state.channels,
-        countries: state.countries,
+        // Get Channels By Country
+        getChannelsByCountry: (countryCode) => {
+          const { channels } = get();
+          return channels.filter(ch => ch.countryCode === countryCode);
+        },
       }),
-    }
+      {
+        name: 'flixify-iptv-storage',
+        partialize: (state) => ({
+          channels: state.channels,
+          countries: state.countries,
+        }),
+      }
+    )
   )
 );
 
@@ -243,18 +237,16 @@ export const useIPTVStore = create<IPTVState>()(
 let heartbeatInterval: NodeJS.Timeout | null = null;
 
 function startHeartbeat(token: string) {
-  stopHeartbeat(); // Eski varsa temizle
-  
+  stopHeartbeat();
   heartbeatInterval = setInterval(() => {
     fetch('/api/stream/heartbeat', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ sessionToken: token }),
     }).catch(() => {
-      // Hata durumunda heartbeat'i durdur
       stopHeartbeat();
     });
-  }, 30000); // 30 saniye
+  }, 30000);
 }
 
 function stopHeartbeat() {
@@ -264,10 +256,17 @@ function stopHeartbeat() {
   }
 }
 
-// Export individual selectors for performance
+// Selectors for better performance
 export const useChannels = () => useIPTVStore(state => state.channels);
 export const useCountries = () => useIPTVStore(state => state.countries);
+export const useFilteredChannels = () => useIPTVStore(state => state.filteredChannels);
 export const useSelectedChannel = () => useIPTVStore(state => state.selectedChannel);
 export const useStreamUrl = () => useIPTVStore(state => state.streamUrl);
 export const useIPTVLoading = () => useIPTVStore(state => state.isLoading);
 export const useIPTVError = () => useIPTVStore(state => state.error);
+export const useDisplayedChannels = () => {
+  const filtered = useIPTVStore(state => state.filteredChannels);
+  const page = useIPTVStore(state => state.page);
+  const itemsPerPage = useIPTVStore(state => state.itemsPerPage);
+  return filtered.slice(0, page * itemsPerPage);
+};

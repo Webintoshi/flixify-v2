@@ -1,13 +1,73 @@
 <!doctype html>
-<html lang="en">
+<html lang="tr">
   <head>
     <meta charset="UTF-8" />
     <link rel="icon" type="image/svg+xml" href="/vite.svg" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0" />
+    <meta name="theme-color" content="#0a0a0a" />
+    <meta name="description" content="Flixify - Premium IPTV Streaming Platform" />
+    
     <title>Flixify</title>
+    
+    <!-- Preconnect to external domains -->
+    <link rel="preconnect" href="https://sdsvnkvmfhaubgcahvzv.supabase.co" crossorigin />
+    <link rel="dns-prefetch" href="https://sdsvnkvmfhaubgcahvzv.supabase.co" />
+    
+    <!-- Critical CSS - inline for fastest render -->
+    <style>
+      /* Critical styles for instant paint */
+      * { margin: 0; padding: 0; box-sizing: border-box; }
+      html { background-color: #0a0a0a; }
+      body {
+        font-family: system-ui, -apple-system, sans-serif;
+        background-color: #0a0a0a;
+        color: #ffffff;
+        min-height: 100vh;
+        overflow-x: hidden;
+      }
+      #root {
+        min-height: 100vh;
+        opacity: 0;
+        animation: fadeIn 0.3s ease-out forwards;
+      }
+      @keyframes fadeIn {
+        to { opacity: 1; }
+      }
+      /* Loading state styles */
+      .initial-loader {
+        position: fixed;
+        inset: 0;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        background: #0a0a0a;
+        z-index: 9999;
+      }
+      .initial-loader::after {
+        content: '';
+        width: 40px;
+        height: 40px;
+        border: 3px solid rgba(255,255,255,0.1);
+        border-top-color: #e50914;
+        border-radius: 50%;
+        animation: spin 0.8s linear infinite;
+      }
+      @keyframes spin {
+        to { transform: rotate(360deg); }
+      }
+    </style>
+    
+    <!-- Preload critical fonts -->
+    <link rel="preload" href="/fonts/inter-var.woff2" as="font" type="font/woff2" crossorigin />
+    
+    <!-- Prefetch common routes -->
+    <link rel="prefetch" href="/src/components/LiveTVPage.tsx" as="script" />
+    <link rel="prefetch" href="/src/components/MoviesPage.tsx" as="script" />
   </head>
 
   <body>
+    <!-- Initial loading state - removed by React -->
+    <div id="initial-loader" class="initial-loader"></div>
     <div id="root"></div>
     <script type="module" src="/src/main.tsx"></script>
   </body>

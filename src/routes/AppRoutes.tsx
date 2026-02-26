@@ -1,83 +1,144 @@
-import { Routes, Route, Navigate } from 'react-router-dom';
-import { Suspense, lazy, useMemo } from 'react';
+import { Routes, Route, Navigate, useLocation, useNavigate } from 'react-router-dom';
+import { Suspense, lazy, useTransition, useCallback, useEffect, useRef } from 'react';
 import { ProtectedRoute } from '../components/ProtectedRoute';
-import { useAuth } from '../contexts/AuthContext';
+import { useUser } from '../contexts/AuthContext';
 
-// Lazy load all page components for better initial load performance
+// Lazy load all page components with prefetch
 const LandingPage = lazy(() => import('../components/LandingPage').then(m => ({ default: m.LandingPage })));
 const HomePage = lazy(() => import('../components/HomePage').then(m => ({ default: m.HomePage })));
-const LiveTVPage = lazy(() => import('../components/LiveTVPage').then(m => ({ default: m.LiveTVPage })));
+const LiveTVPage = lazy(() => import('../components/LiveTVPage').then(m => ({ default: m.LivePage })));
 const MoviesPage = lazy(() => import('../components/MoviesPage').then(m => ({ default: m.MoviesPage })));
 const Login = lazy(() => import('../pages/Login'));
 const Register = lazy(() => import('../pages/Register'));
 const Profile = lazy(() => import('../pages/Profile'));
 
-// Lightweight loading fallback
+// Preload function for route prefetching
+const preloadPage = (page: string) => {
+    switch (page) {
+        case 'canli-tv':
+            return import('../components/LiveTVPage');
+        case 'filmler':
+            return import('../components/MoviesPage');
+        case 'profil':
+            return import('../pages/Profile');
+        default:
+            return Promise.resolve();
+    }
+};
+
+// Ultra-fast loading fallback
 function PageLoader() {
     return (
         <div className="min-h-screen bg-background flex items-center justify-center">
-            <div className="w-10 h-10 border-4 border-primary border-t-transparent rounded-full animate-spin" />
+            <div className="w-8 h-8 border-3 border-primary/30 border-t-primary rounded-full animate-spin" />
         </div>
     );
 }
 
-function IndexPage() {
-    const { user } = useAuth();
-    
-    // Memoize to prevent unnecessary re-renders
-    return useMemo(() => {
-        if (user) {
-            return (
-                <Suspense fallback={<PageLoader />}>
-                    <HomePage />
-                </Suspense>
-            );
+// Prefetch wrapper component
+function PrefetchWrapper({ children }: { children: React.ReactNode }) {
+    const location = useLocation();
+    const navigate = useNavigate();
+    const prefetchTimeoutRef = useRef<NodeJS.Timeout>();
+
+    useEffect(() => {
+        // Prefetch likely next routes based on current route
+        const currentPath = location.pathname;
+        
+        if (currentPath === '/') {
+            // User likely to go to Live TV or Movies
+            prefetchTimeoutRef.current = setTimeout(() => {
+                preloadPage('canli-tv');
+                preloadPage('filmler');
+            }, 2000);
         }
+
+        return () => {
+            if (prefetchTimeoutRef.current) {
+                clearTimeout(prefetchTimeoutRef.current);
+            }
+        };
+    }, [location.pathname]);
+
+    return <>{children}</>;
+}
+
+// Index page with optimized auth check
+function IndexPage() {
+    const user = useUser();
+    
+    if (user) {
         return (
             <Suspense fallback={<PageLoader />}>
-                <LandingPage />
+                <HomePage />
             </Suspense>
         );
-    }, [user]);
+    }
+    return (
+        <Suspense fallback={<PageLoader />}>
+            <LandingPage />
+        </Suspense>
+    );
+}
+
+// Optimized route with transition
+function TransitionRoute({ 
+    element, 
+    delay = 0 
+}: { 
+    element: React.ReactNode; 
+    delay?: number;
+}) {
+    const [isPending, startTransition] = useTransition();
+    const [showContent, setShowContent] = useTransition();
+
+    useEffect(() => {
+        startTransition(() => {
+            setShowContent(() => {});
+        });
+    }, []);
+
+    if (isPending && delay > 0) {
+        return <PageLoader />;
+    }
+
+    return (
+        <Suspense fallback={<PageLoader />}>
+            {element}
+        </Suspense>
+    );
 }
 
 export function AppRoutes() {
     return (
-        <Routes>
-            <Route path="/giris-yap" element={
-                <Suspense fallback={<PageLoader />}>
-                    <Login />
-                </Suspense>
-            } />
-            <Route path="/kayit-ol" element={
-                <Suspense fallback={<PageLoader />}>
-                    <Register />
-                </Suspense>
-            } />
-            
-            {/* Dynamic home page */}
-            <Route path="/" element={<IndexPage />} />
+        <PrefetchWrapper>
+            <Routes>
+                <Route path="/giris-yap" element={
+                    <TransitionRoute element={<Login />} />
+                } />
+                <Route path="/kayit-ol" element={
+                    <TransitionRoute element={<Register />} />
+                } />
+                
+                <Route path="/" element={<IndexPage />} />
 
-            {/* Protected Routes */}
-            <Route element={<ProtectedRoute />}>
-                <Route path="/canli-tv" element={
-                    <Suspense fallback={<PageLoader />}>
-                        <LiveTVPage />
-                    </Suspense>
-                } />
-                <Route path="/filmler" element={
-                    <Suspense fallback={<PageLoader />}>
-                        <MoviesPage />
-                    </Suspense>
-                } />
-                <Route path="/profil" element={
-                    <Suspense fallback={<PageLoader />}>
-                        <Profile />
-                    </Suspense>
-                } />
-            </Route>
+                <Route element={<ProtectedRoute />}>
+                    <Route path="/canli-tv" element={
+                        <TransitionRoute element={<LiveTVPage />} delay={100} />
+                    } />
+                    <Route path="/filmler" element={
+                        <TransitionRoute element={<MoviesPage />} delay={100} />
+                    } />
+                    <Route path="/profil" element={
+                        <TransitionRoute element={<Profile />} delay={50} />
+                    } />
+                </Route>
 
-            <Route path="*" element={<Navigate to="/" replace />} />
-        </Routes>
+                <Route path="*" element={<Navigate to="/" replace />} />
+            </Routes>
+        </PrefetchWrapper>
     );
 }
+
+// Export prefetch function for manual use
+export { preloadPage };
