@@ -53,15 +53,15 @@ export function LandingPage() {
             </nav>
 
             {/* Hero Section */}
-            <section className="relative min-h-[90vh] flex items-center justify-center px-4 sm:px-6 lg:px-16 pt-20">
+            <section className="relative h-screen min-h-[600px] flex items-end pb-24 sm:pb-32 px-6 sm:px-12 lg:px-16 pt-20">
                 <div className="absolute inset-0 z-0">
-                    <div className="absolute inset-0 bg-gradient-to-r from-background via-background/60 to-transparent z-10" />
-                    <div className="absolute inset-0 bg-gradient-to-t from-background via-black/40 to-transparent z-10" />
+                    <div className="absolute inset-0 bg-gradient-to-r from-background via-background/40 to-transparent z-10" />
+                    <div className="absolute inset-0 bg-gradient-to-t from-background via-transparent to-transparent z-10" />
                     {heroBg ? (
                         <img 
                             src={heroBg} 
                             alt="" 
-                            className="w-full h-full object-cover opacity-70"
+                            className="w-full h-full object-cover"
                             loading="eager"
                         />
                     ) : (
@@ -70,37 +70,35 @@ export function LandingPage() {
                 </div>
 
                 <div className="relative z-20 w-full max-w-7xl mx-auto">
-                    <div className="max-w-3xl">
+                    <div className="max-w-2xl">
                     <motion.h1
                         initial={{ opacity: 0, y: 30 }}
                         animate={{ opacity: 1, y: 0 }}
-                        transition={{ duration: 0.6, ease: [0.4, 0, 0.2, 1] }}
-                        className="text-4xl sm:text-5xl md:text-6xl lg:text-7xl font-bold font-sans tracking-tight leading-[1.1] mb-6"
+                        transition={{ duration: 0.8 }}
+                        className="text-4xl sm:text-5xl md:text-6xl lg:text-7xl font-black text-white mb-4 drop-shadow-2xl tracking-tight leading-[1.1]"
                     >
-                        Sınırsız Eğlence <br className="hidden sm:block" /> Tek Bir Yerde.
+                        Sınırsız Eğlence <br /> Tek Bir Yerde.
                     </motion.h1>
 
                     <motion.div
                         initial={{ opacity: 0 }}
                         animate={{ opacity: 1 }}
-                        transition={{ delay: 0.2, duration: 0.5 }}
-                        className="flex flex-wrap items-center gap-x-4 gap-y-2 text-sm font-medium text-gray-300 mb-6"
+                        transition={{ delay: 0.2 }}
+                        className="flex items-center gap-3 mb-4 text-sm font-medium"
                     >
-                        <span className="flex items-center gap-1 text-primary">
-                            <Star size={16} fill="currentColor" aria-hidden="true" /> 9.8
-                        </span>
-                        <span className="text-gray-600" aria-hidden="true">·</span>
-                        <span>2026</span>
-                        <span className="text-gray-600 hidden sm:inline" aria-hidden="true">·</span>
-                        <span className="w-full sm:w-auto">Her Gün Güncel İçerik</span>
-                        <span className="bg-white/10 px-2 py-0.5 rounded text-xs border border-border">4K UHD</span>
+                        <span className="flex items-center gap-1 text-primary"><Star size={16} fill="currentColor" /> 9.8</span>
+                        <span className="text-gray-500">·</span>
+                        <span className="text-gray-300">2026</span>
+                        <span className="text-gray-500">·</span>
+                        <span className="text-gray-300">Her Gün Güncel İçerik</span>
+                        <span className="bg-white/10 px-2 py-0.5 rounded text-xs border border-white/20 text-gray-300">4K UHD</span>
                     </motion.div>
 
                     <motion.p
                         initial={{ opacity: 0 }}
                         animate={{ opacity: 1 }}
-                        transition={{ delay: 0.3, duration: 0.5 }}
-                        className="text-gray-400 max-w-xl text-sm sm:text-base leading-relaxed mb-8 sm:mb-10"
+                        transition={{ delay: 0.3 }}
+                        className="text-gray-400 max-w-xl text-base leading-relaxed mb-8 drop-shadow-lg"
                     >
                         Favori TV Şovlarınızı, Filmlerinizi, Canlı Yayınları, Haber Kanallarını, Spor Müsabakalarını, Canlı Etkinlikleri ve Çocuklarınız İçin Çizgi Filmleri 4K HD Kalitesinde donmadan izleyin.
                     </motion.p>
@@ -108,23 +106,19 @@ export function LandingPage() {
                     <motion.div
                         initial={{ opacity: 0, y: 20 }}
                         animate={{ opacity: 1, y: 0 }}
-                        transition={{ delay: 0.4, duration: 0.5 }}
-                        className="flex flex-wrap items-center gap-4"
+                        transition={{ delay: 0.4 }}
+                        className="flex items-center gap-4"
                     >
                         <Link 
                             to="/kayit-ol" 
-                            className="flex items-center justify-center gap-2 bg-primary hover:bg-primary-hover hover:scale-105 active:scale-100 transition-all duration-200 text-white px-6 sm:px-8 py-3 sm:py-3.5 rounded-lg font-bold shadow-lg shadow-primary/20 focus:outline-none focus-visible:ring-2 focus-visible:ring-white focus-visible:ring-offset-2 focus-visible:ring-offset-background"
+                            className="flex items-center gap-3 bg-primary hover:bg-primary-hover transition-colors text-white px-8 py-3 rounded font-bold"
                         >
-                            Hesap Oluştur <Play size={18} fill="currentColor" aria-hidden="true" />
+                            Hesap Oluştur <Play size={20} fill="currentColor" />
                         </Link>
-                        <button 
-                            className="w-12 h-12 flex items-center justify-center bg-surface hover:bg-surface-hover active:scale-95 border border-border rounded-lg transition-all duration-200 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 focus-visible:ring-offset-background"
-                            aria-label="Daha fazla bilgi"
-                        >
-                            <Plus size={24} aria-hidden="true" />
+                        <button className="w-12 h-12 flex items-center justify-center bg-surface hover:bg-surface-hover border border-border rounded transition-colors">
+                            <Plus size={24} />
                         </button>
                     </motion.div>
-                    </div>
                 </div>
             </section>
 
