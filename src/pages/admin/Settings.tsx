@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { 
     Save, Database, Shield, Bell, Server, AlertTriangle,
-    CheckCircle, RefreshCw, Key, Lock
+    CheckCircle, RefreshCw, Key, Lock, Globe, Zap
 } from 'lucide-react';
 
 import { useAdmin } from '../../contexts/AdminContext';
@@ -11,6 +11,7 @@ interface SystemSettings {
     registration_enabled: boolean;
     default_max_streams: number;
     stream_timeout: number;
+    stream_proxy_mode: 'bunny' | 'direct';
 }
 
 export default function Settings() {
@@ -18,7 +19,8 @@ export default function Settings() {
         maintenance_mode: false,
         registration_enabled: true,
         default_max_streams: 2,
-        stream_timeout: 30
+        stream_timeout: 30,
+        stream_proxy_mode: 'bunny'
     });
     const [, setLoading] = useState(true);
     const [saving, setSaving] = useState(false);
@@ -207,6 +209,75 @@ export default function Settings() {
                                 className="w-full px-4 py-3 bg-black/50 border border-white/10 rounded-xl focus:ring-2 focus:ring-primary/50 outline-none text-sm font-bold"
                             />
                         </div>
+                    </div>
+                </SettingCard>
+
+                {/* CDN / Stream Proxy Settings */}
+                <SettingCard 
+                    title="CDN Proxy Ayarları"
+                    description="IPTV stream proxy yapılandırması"
+                    icon={Globe}
+                >
+                    <div className="space-y-4">
+                        <div className="p-4 bg-primary/5 border border-primary/20 rounded-2xl">
+                            <div className="flex items-center gap-2 mb-2">
+                                <Zap size={16} className="text-primary" />
+                                <span className="text-sm font-bold text-primary">Bunny CDN Proxy</span>
+                            </div>
+                            <p className="text-xs text-gray-400 mb-4">
+                                IPTV stream'lerinizi Bunny CDN üzerinden proxy ederek daha hızlı ve stabil yayın sağlayın. 
+                                Video depolanmaz, sadece edge cache kullanılır.
+                            </p>
+                            
+                            <div className="flex gap-2">
+                                <button
+                                    onClick={() => setSettings(s => ({ ...s, stream_proxy_mode: 'bunny' }))}
+                                    className={`flex-1 py-3 rounded-xl text-xs font-black uppercase tracking-wider transition-all ${
+                                        settings.stream_proxy_mode === 'bunny'
+                                            ? 'bg-primary text-white'
+                                            : 'bg-white/5 text-gray-400 hover:bg-white/10'
+                                    }`}
+                                >
+                                    Bunny CDN
+                                </button>
+                                <button
+                                    onClick={() => setSettings(s => ({ ...s, stream_proxy_mode: 'direct' }))}
+                                    className={`flex-1 py-3 rounded-xl text-xs font-black uppercase tracking-wider transition-all ${
+                                        settings.stream_proxy_mode === 'direct'
+                                            ? 'bg-primary text-white'
+                                            : 'bg-white/5 text-gray-400 hover:bg-white/10'
+                                    }`}
+                                >
+                                    Direkt (IPTV)
+                                </button>
+                            </div>
+                        </div>
+
+                        {settings.stream_proxy_mode === 'bunny' && (
+                            <div className="p-4 bg-green-500/10 border border-green-500/30 rounded-2xl">
+                                <div className="flex items-center gap-2 mb-2">
+                                    <CheckCircle size={16} className="text-green-500" />
+                                    <span className="text-sm font-bold text-green-500">Aktif</span>
+                                </div>
+                                <p className="text-xs text-green-400/80">
+                                    Stream'ler Bunny CDN üzerinden proxy ediliyor. 
+                                    Daha hızlı bağlantı ve global edge cache avantajı.
+                                </p>
+                            </div>
+                        )}
+
+                        {settings.stream_proxy_mode === 'direct' && (
+                            <div className="p-4 bg-yellow-500/10 border border-yellow-500/30 rounded-2xl">
+                                <div className="flex items-center gap-2 mb-2">
+                                    <AlertTriangle size={16} className="text-yellow-500" />
+                                    <span className="text-sm font-bold text-yellow-500">Direkt Mod</span>
+                                </div>
+                                <p className="text-xs text-yellow-400/80">
+                                    Stream'ler doğrudan IPTV provider'dan çekiliyor. 
+                                    CDN optimizasyonu devre dışı.
+                                </p>
+                            </div>
+                        )}
                     </div>
                 </SettingCard>
 
