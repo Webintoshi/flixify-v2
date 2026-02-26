@@ -12,8 +12,6 @@ import {
   generateStreamToken,
   getProxyStreamUrl,
   filterChannels,
-  getChannelsByCountry,
-  extractCountries,
   type Channel,
   type Country,
 } from '../lib/iptvApi';

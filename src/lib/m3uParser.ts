@@ -30,6 +30,13 @@ export interface Country {
   channelCount: number;
 }
 
+// Legacy compatibility
+export interface M3UPlaylist {
+  name: string;
+  url: string;
+  channels: M3UChannel[];
+}
+
 // ALL WORLD COUNTRIES (150+ countries)
 const countryMap: Record<string, { name: string; flag: string }> = {
   // TURKEY & NEIGHBORS

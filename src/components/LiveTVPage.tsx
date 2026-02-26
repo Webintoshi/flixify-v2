@@ -15,7 +15,7 @@ import type { Channel } from '../lib/iptvApi';
 
 import {
   Search, Tv, Globe, Play, Grid3X3,
-  List, ArrowLeft, Star, Loader2, AlertCircle
+  List, ArrowLeft, Loader2, AlertCircle
 } from 'lucide-react';
 
 const countryGradients: Record<string, string> = {
@@ -31,11 +31,10 @@ const countryGradients: Record<string, string> = {
   'default': 'from-surface-hover via-surface to-background',
 };
 
-const CHANNELS_PER_PAGE = 50;
+// Pagination handled in store
 
 // Optimized country selection page component
 const CountrySelectionView = memo(function CountrySelectionView({
-  profile,
   countries,
   countrySearch,
   setCountrySearch,
@@ -565,7 +564,6 @@ export function LiveTVPage() {
   if (!selectedCountryCode) {
     return (
       <CountrySelectionView
-        profile={profile}
         countries={countries}
         countrySearch={countrySearch}
         setCountrySearch={setCountrySearch}

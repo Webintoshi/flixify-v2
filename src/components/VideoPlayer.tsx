@@ -1,9 +1,12 @@
 /**
  * FLIXIFY VIDEO PLAYER
  * 
- * HLS.js ile güçlendirilmiş, proxy stream üzerinden çalışan video player.
- * Token-based authentication, retry logic, ve error handling içerir.
- * Tema: Netflix-style (mevcut tasarım korunur)
+ * Universal video player for:
+ * - Live TV (IPTV channels with proxy stream)
+ * - Movies/VOD (direct content playback)
+ * 
+ * Features: HLS.js, retry logic, error handling, keyboard shortcuts
+ * Tema: Netflix-style
  */
 
 import { useEffect, useRef, useState, useCallback, memo } from 'react';
@@ -16,16 +19,33 @@ import {
 import { motion, AnimatePresence } from 'framer-motion';
 import type { Channel } from '../lib/iptvApi';
 
+// Content item for Movies/VOD
+interface ContentItem {
+  id: string;
+  name: string;
+  logo?: string;
+  group?: string;
+  url?: string;
+  type?: 'live' | 'movie' | 'series';
+  isLive?: boolean;
+}
+
+// Universal VideoPlayer props
 interface VideoPlayerProps {
-  channel: Channel;
-  streamUrl: string;
+  // For Live TV
+  channel?: Channel;
+  streamUrl?: string;
+  // For Movies/VOD
+  content?: ContentItem;
+  // Common
   onClose: () => void;
 }
 
 // Memoized player to prevent unnecessary re-renders
 export const VideoPlayer = memo(function VideoPlayer({ 
   channel, 
-  streamUrl, 
+  streamUrl,
+  content,
   onClose 
 }: VideoPlayerProps) {
   const videoRef = useRef<HTMLVideoElement>(null);
@@ -34,6 +54,14 @@ export const VideoPlayer = memo(function VideoPlayer({
   const hlsRef = useRef<Hls | null>(null);
   const retryCountRef = useRef(0);
   const maxRetries = 3;
+
+  // Determine mode and data
+  const isLiveMode = !!channel && !!streamUrl;
+  const item = isLiveMode ? channel : content;
+  const videoUrl = isLiveMode ? streamUrl : content?.url || '';
+  const title = item?.name || 'Unknown';
+  const group = isLiveMode ? (channel as Channel).group : content?.group;
+  const isLive = isLiveMode || content?.isLive || content?.type === 'live';
 
   // State
   const [isPlaying, setIsPlaying] = useState(true);
@@ -52,16 +80,16 @@ export const VideoPlayer = memo(function VideoPlayer({
     };
   }, []);
 
-  // Setup player when streamUrl changes
+  // Setup player when URL changes
   useEffect(() => {
-    if (!streamUrl || !videoRef.current) return;
+    if (!videoUrl || !videoRef.current) return;
 
-    setupPlayer(streamUrl);
+    setupPlayer(videoUrl);
 
     return () => {
       cleanupPlayer();
     };
-  }, [streamUrl]);
+  }, [videoUrl]);
 
   // Cleanup function
   const cleanupPlayer = () => {
@@ -87,7 +115,7 @@ export const VideoPlayer = memo(function VideoPlayer({
 
     try {
       // HLS.js ile oynat
-      if (Hls.isSupported()) {
+      if (Hls.isSupported() && (url.includes('.m3u8') || url.includes('.ts'))) {
         const hls = new Hls({
           maxBufferLength: 30,
           maxMaxBufferLength: 60,
@@ -113,7 +141,7 @@ export const VideoPlayer = memo(function VideoPlayer({
         hlsRef.current = hls;
 
         // Error handling
-        hls.on(Hls.Events.ERROR, (event, data) => {
+        hls.on(Hls.Events.ERROR, (_event, data) => {
           if (data.fatal) {
             handleFatalError(data);
           }
@@ -145,8 +173,18 @@ export const VideoPlayer = memo(function VideoPlayer({
           handleFatalError({ type: Hls.ErrorTypes.NETWORK_ERROR, details: '', fatal: true } as any);
         });
       } else {
-        setError('Your browser does not support HLS streaming.');
-        setIsLoading(false);
+        // Direct video URL (MP4, etc.)
+        video.src = url;
+        
+        video.addEventListener('loadeddata', () => {
+          setIsLoading(false);
+          video.play().catch(() => setIsPlaying(false));
+        });
+
+        video.addEventListener('error', () => {
+          setError('Video cannot be played');
+          setIsLoading(false);
+        });
       }
 
     } catch (err: any) {
@@ -174,14 +212,14 @@ export const VideoPlayer = memo(function VideoPlayer({
               hlsRef.current.recoverMediaError();
               break;
             default:
-              setupPlayer(streamUrl);
+              setupPlayer(videoUrl);
               break;
           }
         }
         setRetrying(false);
       }, 2000 * retryCountRef.current);
     } else {
-      setError('Stream unavailable. Please try another channel.');
+      setError('Stream unavailable. Please try again.');
       setIsLoading(false);
     }
   };
@@ -189,7 +227,7 @@ export const VideoPlayer = memo(function VideoPlayer({
   // Manual retry
   const handleRetry = () => {
     retryCountRef.current = 0;
-    setupPlayer(streamUrl);
+    setupPlayer(videoUrl);
   };
 
   // Keyboard shortcuts
@@ -309,14 +347,6 @@ export const VideoPlayer = memo(function VideoPlayer({
     }
   }, []);
 
-  // Format time
-  const formatTime = (seconds: number): string => {
-    if (!isFinite(seconds)) return '0:00';
-    const mins = Math.floor(seconds / 60);
-    const secs = Math.floor(seconds % 60);
-    return `${mins}:${secs.toString().padStart(2, '0')}`;
-  };
-
   return (
     <motion.div
       initial={{ opacity: 0 }}
@@ -351,7 +381,7 @@ export const VideoPlayer = memo(function VideoPlayer({
           >
             <Loader2 size={56} className="text-primary animate-spin mb-4" />
             <p className="text-white/80 text-lg">
-              {retrying ? 'Reconnecting...' : 'Loading stream...'}
+              {retrying ? 'Reconnecting...' : 'Loading...'}
             </p>
           </motion.div>
         )}
@@ -368,7 +398,7 @@ export const VideoPlayer = memo(function VideoPlayer({
           >
             <div className="text-center max-w-md px-6">
               <AlertCircle size={64} className="text-red-500 mx-auto mb-4" />
-              <h2 className="text-2xl font-bold text-white mb-2">Stream Error</h2>
+              <h2 className="text-2xl font-bold text-white mb-2">Playback Error</h2>
               <p className="text-gray-400 mb-6">{error}</p>
               <div className="flex gap-3 justify-center">
                 <button
@@ -406,17 +436,19 @@ export const VideoPlayer = memo(function VideoPlayer({
               <X size={24} />
             </button>
             <div>
-              <h2 className="text-white font-semibold text-lg">{channel.name}</h2>
-              {channel.group && (
-                <p className="text-white/60 text-sm">{channel.group}</p>
+              <h2 className="text-white font-semibold text-lg">{title}</h2>
+              {group && (
+                <p className="text-white/60 text-sm">{group}</p>
               )}
             </div>
           </div>
 
-          <span className="flex items-center gap-2 px-3 py-1.5 bg-primary/90 text-white text-sm font-semibold rounded-full">
-            <span className="w-2 h-2 bg-white rounded-full animate-pulse" />
-            LIVE
-          </span>
+          {isLive && (
+            <span className="flex items-center gap-2 px-3 py-1.5 bg-primary/90 text-white text-sm font-semibold rounded-full">
+              <span className="w-2 h-2 bg-white rounded-full animate-pulse" />
+              LIVE
+            </span>
+          )}
         </div>
       </motion.div>
 
