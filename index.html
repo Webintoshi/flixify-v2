@@ -66,9 +66,16 @@
   </head>
 
   <body>
-    <!-- Initial loading state - removed by React -->
+    <!-- Initial loading state - auto-remove after 5s if React fails -->
     <div id="initial-loader" class="initial-loader"></div>
     <div id="root"></div>
+    <script>
+      // Auto-remove loader after 5 seconds (failsafe)
+      setTimeout(() => {
+        const loader = document.getElementById('initial-loader');
+        if (loader) loader.remove();
+      }, 5000);
+    </script>
     <script type="module" src="/src/main.tsx"></script>
   </body>
 </html>
