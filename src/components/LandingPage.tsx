@@ -119,7 +119,7 @@ export function LandingPage() {
                             <Plus size={24} />
                         </button>
                     </motion.div>
-                </div>
+                    </div>
                 </div>
             </section>
 
