@@ -39,6 +39,9 @@ COPY --from=builder /app/package*.json ./
 # Install production dependencies only
 RUN npm install --production
 
+# Create supervisor config directory
+RUN mkdir -p /etc/supervisor/conf.d
+
 # Nginx config - SPA routing + Proxy
 RUN echo 'server { \
     listen 3000; \
