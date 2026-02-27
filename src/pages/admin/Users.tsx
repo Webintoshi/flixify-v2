@@ -1,7 +1,7 @@
 import { useState, useEffect, useMemo } from 'react';
 import { 
     Search, Shield, Ban, CheckCircle, Save, X, Calendar, 
-    Link as LinkIcon, Users as UsersIcon, Monitor, Filter,
+    Users as UsersIcon, Monitor, Filter, Key, UserCircle,
     Download, CheckSquare, Square,
     RefreshCw
 } from 'lucide-react';
@@ -14,7 +14,8 @@ interface User {
     created_at: string;
     is_banned: boolean;
     subscription_expiry: string | null;
-    m3u_url: string | null;
+    iptv_username: string | null;
+    iptv_password: string | null;
     max_concurrent_streams: number;
 }
 
@@ -36,9 +37,10 @@ export default function Users() {
     
     // Edit Modal State
     const [editingUser, setEditingUser] = useState<User | null>(null);
-    const [editM3u, setEditM3u] = useState('');
+    const [editIptvUsername, setEditIptvUsername] = useState('');
+    const [editIptvPassword, setEditIptvPassword] = useState('');
     const [editExpiry, setEditExpiry] = useState('');
-    const [editMaxStreams, setEditMaxStreams] = useState(2);
+    const [editMaxStreams, setEditMaxStreams] = useState(1); // Varsayılan 1
     const [updating, setUpdating] = useState(false);
 
     // Bulk Actions
@@ -52,7 +54,11 @@ export default function Users() {
     const fetchUsers = async () => {
         setLoading(true);
         try {
-            const { data, error } = await supabase.rpc('get_all_profiles');
+            const { data, error } = await supabase
+                .from('profiles')
+                .select('*')
+                .order('created_at', { ascending: false });
+            
             if (error) throw error;
             setUsers(data || []);
         } catch (err) {
@@ -147,9 +153,10 @@ export default function Users() {
     // Edit modal
     const openEditModal = (user: User) => {
         setEditingUser(user);
-        setEditM3u(user.m3u_url || '');
+        setEditIptvUsername(user.iptv_username || '');
+        setEditIptvPassword(user.iptv_password || '');
         setEditExpiry(user.subscription_expiry ? new Date(user.subscription_expiry).toISOString().split('T')[0] : '');
-        setEditMaxStreams(user.max_concurrent_streams || 2);
+        setEditMaxStreams(user.max_concurrent_streams || 1); // Varsayılan 1
     };
 
     const handleUpdateUser = async () => {
@@ -160,7 +167,8 @@ export default function Users() {
             const { error } = await supabase
                 .from('profiles')
                 .update({
-                    m3u_url: editM3u.trim() || null,
+                    iptv_username: editIptvUsername.trim() || null,
+                    iptv_password: editIptvPassword.trim() || null,
                     subscription_expiry: editExpiry ? new Date(editExpiry).toISOString() : null,
                     max_concurrent_streams: Math.max(1, Math.min(5, editMaxStreams)),
                 })
@@ -187,12 +195,13 @@ export default function Users() {
 
     // Export to CSV
     const exportCSV = () => {
-        const headers = ['Hesap No', 'Durum', 'Abonelik', 'Ekran Limiti', 'Kayıt Tarihi'];
+        const headers = ['Hesap No', 'Durum', 'Abonelik', 'Ekran Limiti', 'IPTV Kullanıcı', 'Kayıt Tarihi'];
         const rows = filteredUsers.map(u => [
             u.account_number,
             u.is_banned ? 'Yasaklı' : 'Aktif',
             u.subscription_expiry ? new Date(u.subscription_expiry).toLocaleDateString('tr-TR') : 'Süresiz',
-            u.max_concurrent_streams || 2,
+            u.max_concurrent_streams || 1,
+            u.iptv_username ? 'Evet' : 'Hayır',
             new Date(u.created_at).toLocaleDateString('tr-TR')
         ]);
         
@@ -370,7 +379,7 @@ export default function Users() {
                                 <th className="px-4 py-4 text-[10px] font-black uppercase tracking-[0.2em] text-gray-500 text-center">Durum</th>
                                 <th className="px-4 py-4 text-[10px] font-black uppercase tracking-[0.2em] text-gray-500">Abonelik</th>
                                 <th className="px-4 py-4 text-[10px] font-black uppercase tracking-[0.2em] text-gray-500 text-center">Ekran</th>
-                                <th className="px-4 py-4 text-[10px] font-black uppercase tracking-[0.2em] text-gray-500">M3U</th>
+                                <th className="px-4 py-4 text-[10px] font-black uppercase tracking-[0.2em] text-gray-500">IPTV</th>
                                 <th className="px-4 py-4 text-[10px] font-black uppercase tracking-[0.2em] text-gray-500 text-right">İşlemler</th>
                             </tr>
                         </thead>
@@ -445,18 +454,18 @@ export default function Users() {
                                         <td className="px-4 py-4 text-center">
                                             <span className="inline-flex items-center gap-1 px-2.5 py-1 bg-blue-500/10 text-blue-400 border border-blue-500/30 rounded-lg text-xs font-bold">
                                                 <Monitor size={12} />
-                                                {user.max_concurrent_streams || 2}
+                                                {user.max_concurrent_streams || 1}
                                             </span>
                                         </td>
                                         <td className="px-4 py-4">
-                                            {user.m3u_url ? (
-                                                <div className="flex items-center gap-2 text-primary bg-primary/10 px-3 py-1.5 rounded-lg border border-primary/20 w-fit max-w-[150px]">
-                                                    <LinkIcon size={12} />
-                                                    <span className="text-xs font-bold truncate">{user.m3u_url}</span>
+                                            {user.iptv_username ? (
+                                                <div className="flex items-center gap-2 text-green-400 bg-green-500/10 px-3 py-1.5 rounded-lg border border-green-500/20 w-fit">
+                                                    <UserCircle size={12} />
+                                                    <span className="text-xs font-bold">Aktif</span>
                                                 </div>
                                             ) : (
                                                 <span className="text-gray-600 text-[10px] font-black uppercase bg-white/5 px-3 py-1.5 rounded-lg border border-white/5">
-                                                    Eşleştirilmemiş
+                                                    Tanımlanmamış
                                                 </span>
                                             )}
                                         </td>
@@ -521,17 +530,32 @@ export default function Users() {
                         </div>
 
                         <div className="p-6 space-y-6">
-                            {/* M3U URL */}
+                            {/* IPTV Username */}
                             <div>
                                 <label className="flex items-center gap-2 text-xs font-black uppercase tracking-[0.15em] text-gray-400 mb-3">
-                                    <LinkIcon size={14} className="text-primary" />
-                                    M3U Listesi URL
+                                    <UserCircle size={14} className="text-primary" />
+                                    IPTV Kullanıcı Adı
                                 </label>
                                 <input
-                                    type="url"
-                                    value={editM3u}
-                                    onChange={(e) => setEditM3u(e.target.value)}
-                                    placeholder="https://..."
+                                    type="text"
+                                    value={editIptvUsername}
+                                    onChange={(e) => setEditIptvUsername(e.target.value)}
+                                    placeholder="Kullanıcı adı..."
+                                    className="w-full px-4 py-3 bg-black/50 border border-white/10 rounded-xl focus:ring-2 focus:ring-primary/50 outline-none text-sm"
+                                />
+                            </div>
+
+                            {/* IPTV Password */}
+                            <div>
+                                <label className="flex items-center gap-2 text-xs font-black uppercase tracking-[0.15em] text-gray-400 mb-3">
+                                    <Key size={14} className="text-primary" />
+                                    IPTV Şifre
+                                </label>
+                                <input
+                                    type="text"
+                                    value={editIptvPassword}
+                                    onChange={(e) => setEditIptvPassword(e.target.value)}
+                                    placeholder="Şifre..."
                                     className="w-full px-4 py-3 bg-black/50 border border-white/10 rounded-xl focus:ring-2 focus:ring-primary/50 outline-none text-sm"
                                 />
                             </div>
@@ -548,12 +572,12 @@ export default function Users() {
                                     onChange={(e) => setEditExpiry(e.target.value)}
                                     className="w-full px-4 py-3 bg-black/50 border border-white/10 rounded-xl focus:ring-2 focus:ring-primary/50 outline-none text-sm [color-scheme:dark]"
                                 />
-                                <div className="flex gap-2 mt-3">
-                                    {[1, 3, 12].map((m) => (
+                                <div className="grid grid-cols-4 gap-2 mt-3">
+                                    {[1, 3, 6, 12].map((m) => (
                                         <button
                                             key={m}
                                             onClick={() => addMonths(m)}
-                                            className="flex-1 py-2 bg-white/5 hover:bg-white/10 text-gray-300 text-xs font-bold uppercase rounded-lg transition-colors"
+                                            className="py-2 bg-white/5 hover:bg-white/10 text-gray-300 text-xs font-bold uppercase rounded-lg transition-colors"
                                         >
                                             +{m} {m === 12 ? 'YIL' : 'AY'}
                                         </button>
