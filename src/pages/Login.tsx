@@ -47,13 +47,6 @@ const Login: React.FC = () => {
             if (signInError) {
                 setError('Geçersiz hesap numarası. Lütfen kontrol edip tekrar deneyin.');
             } else {
-                if (window.location.protocol === 'https:') {
-                    const { data: { session } } = await supabase.auth.getSession();
-                    const accessToken = session?.access_token;
-                    const refreshToken = session?.refresh_token;
-                    window.location.href = `http://app.flixify.pro/#access_token=${accessToken}&refresh_token=${refreshToken}`;
-                    return;
-                }
                 navigate('/');
             }
         } catch (err) {

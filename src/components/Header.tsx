@@ -3,7 +3,7 @@ import { Link, useLocation } from 'react-router-dom';
 import { Search, Bell, User, Menu, X, Tv, LogOut } from 'lucide-react';
 import { useContentStore } from '../store/useContentStore';
 import { useAuth } from '../contexts/AuthContext';
-import { getSmartUrl, ROUTES } from '../lib/routing';
+import { getRoutePath, ROUTES } from '../lib/routing';
 
 interface HeaderProps {
     onMenuClick?: () => void;
@@ -106,7 +106,7 @@ export const Header = memo(function Header(_props: HeaderProps) {
                             item.routeKey ? (
                                 <a
                                     key={item.label}
-                                    href={getSmartUrl(item.routeKey)}
+                                    href={getRoutePath(item.routeKey)}
                                     className={`text-sm font-medium transition-colors duration-200 ${location.pathname === (item.path || '/')
                                         ? 'text-white font-semibold'
                                         : 'text-foreground-muted hover:text-white'
@@ -206,7 +206,7 @@ export const Header = memo(function Header(_props: HeaderProps) {
                         {isProfileMenuOpen && (
                             <div className="absolute right-0 mt-2 w-48 bg-black/95 border border-white/20 rounded shadow-xl py-2 z-50">
                                 <a
-                                    href={getSmartUrl('PROFILE')}
+                                    href={getRoutePath('PROFILE')}
                                     onClick={() => setIsProfileMenuOpen(false)}
                                     className="w-full text-left px-4 py-2 text-sm text-foreground-muted hover:text-white hover:bg-white/10 transition-colors flex items-center gap-2"
                                 >
@@ -234,7 +234,7 @@ export const Header = memo(function Header(_props: HeaderProps) {
                             item.routeKey ? (
                                 <a
                                     key={item.label}
-                                    href={getSmartUrl(item.routeKey)}
+                                    href={getRoutePath(item.routeKey)}
                                     onClick={() => setIsMobileMenuOpen(false)}
                                     className={`text-left px-4 py-3 rounded-lg transition-colors ${location.pathname === (item.path || '/')
                                         ? 'bg-primary/20 text-white font-semibold'

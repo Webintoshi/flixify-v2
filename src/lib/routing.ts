@@ -1,5 +1,6 @@
 /**
- * Smart Routing Utility for HTTP/HTTPS hybrid architecture
+ * Simple Routing Utility
+ * All routes now use HTTPS on flixify.pro (Bunny CDN)
  */
 
 export const ROUTES = {
@@ -16,40 +17,23 @@ export const ROUTES = {
 
 export type RouteKey = keyof typeof ROUTES;
 
-export const HTTPS_ROUTES: RouteKey[] = ['LOGIN', 'REGISTER', 'PROFILE'];
-export const HTTP_ROUTES: RouteKey[] = ['LANDING', 'MOVIES', 'SERIES', 'LIVE_TV', 'SEARCH', 'FAVORITES'];
-
-export function getSmartUrl(routeKey: RouteKey): string {
-    const route = ROUTES[routeKey];
-    const isHttps = window.location.protocol === 'https:';
-    
-    const needsHttp = HTTP_ROUTES.includes(routeKey);
-    const needsHttps = HTTPS_ROUTES.includes(routeKey);
-    
-    if (isHttps && needsHttp) {
-        return `http://app.flixify.pro${route}`;
-    }
-    
-    if (!isHttps && needsHttps) {
-        return `https://flixify.pro${route}`;
-    }
-    
-    return route;
+/**
+ * Get route path - All routes are now on same domain with HTTPS
+ */
+export function getRoutePath(routeKey: RouteKey): string {
+    return ROUTES[routeKey];
 }
 
-export function navigateSmart(routeKey: RouteKey) {
-    const url = getSmartUrl(routeKey);
-    if (url.startsWith('http://') || url.startsWith('https://')) {
-        window.location.href = url;
-    } else {
-        window.location.pathname = url;
-    }
+/**
+ * Navigate to route
+ */
+export function navigateTo(routeKey: RouteKey) {
+    window.location.pathname = ROUTES[routeKey];
 }
 
-export function isSecureRoute(pathname: string): boolean {
-    return HTTPS_ROUTES.some(key => ROUTES[key] === pathname);
-}
-
-export function isVideoRoute(pathname: string): boolean {
-    return HTTP_ROUTES.some(key => ROUTES[key] === pathname);
+/**
+ * Check if route exists
+ */
+export function isValidRoute(pathname: string): boolean {
+    return Object.values(ROUTES).includes(pathname as any);
 }
