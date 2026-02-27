@@ -17,7 +17,13 @@
 const PROXY_BASE = 'https://api.flixify.pro';
 // const PROXY_BASE = 'http://<VULTR_IP>:3001'; // Domain aktif olana kadar
 
-const IPTV_BASE = 'http://sifiriptvdns.com:80';
+const IPTV_BASE = 'https://sifiriptvdns.com';
+
+// HTTP URL'leri HTTPS'e çevir (Mixed Content hatalarını önlemek için)
+export const toHttps = (url: string | null | undefined): string | undefined => {
+  if (!url) return undefined;
+  return url.replace(/^http:\/\//i, 'https://');
+};
 
 // Types
 export interface LiveCategory {

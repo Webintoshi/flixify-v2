@@ -3,7 +3,7 @@ import { Header } from './Header';
 import { VideoPlayer } from './VideoPlayer';
 import { Play, Info, ChevronDown, Filter, Film, Search } from 'lucide-react';
 import { motion } from 'framer-motion';
-import { IPTVService, VodStream } from '../lib/iptvService';
+import { IPTVService, VodStream, toHttps } from '../lib/iptvService';
 import { UpgradePrompt } from './UpgradePrompt';
 
 // VOD Category type
@@ -128,8 +128,8 @@ export function MoviesPage() {
       duration: "2s", // Not available in API
       genres: [categories.find(c => c.category_id === movie.category_id)?.category_name || "Film"],
       description: movie.name,
-      poster: movie.stream_icon || '',
-      backdrop: movie.stream_icon || '',
+      poster: toHttps(movie.stream_icon) || '',
+      backdrop: toHttps(movie.stream_icon) || '',
       category: categories.find(c => c.category_id === movie.category_id)?.category_name || "Film",
       container_extension: movie.container_extension,
     }));
