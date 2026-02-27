@@ -117,7 +117,7 @@ export const VideoPlayer = memo(function VideoPlayer({
           debug: false,
           
           // CORS için credentials mode
-          xhrSetup: function(xhr, url) {
+          xhrSetup: function(xhr, _url) {
             xhr.withCredentials = false;
           },
           
