@@ -20,6 +20,33 @@ CREATE TABLE IF NOT EXISTS public.profiles (
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT now()
 );
 
+-- 1.5 Mevcut tabloya eksik kolonları ekle (eğer yoksa)
+ALTER TABLE public.profiles 
+ADD COLUMN IF NOT EXISTS email TEXT,
+ADD COLUMN IF NOT EXISTS full_name TEXT,
+ADD COLUMN IF NOT EXISTS avatar_url TEXT,
+ADD COLUMN IF NOT EXISTS account_number TEXT,
+ADD COLUMN IF NOT EXISTS is_admin BOOLEAN DEFAULT false,
+ADD COLUMN IF NOT EXISTS subscription_end_date TIMESTAMP WITH TIME ZONE,
+ADD COLUMN IF NOT EXISTS max_concurrent_streams INTEGER DEFAULT 2,
+ADD COLUMN IF NOT EXISTS daily_stream_quota_minutes INTEGER DEFAULT 480,
+ADD COLUMN IF NOT EXISTS subscription_status TEXT DEFAULT 'trial',
+ADD COLUMN IF NOT EXISTS updated_at TIMESTAMP WITH TIME ZONE DEFAULT now();
+
+-- subscription_status için CHECK constraint ekle (eğer yoksa)
+DO $$
+BEGIN
+    IF NOT EXISTS (
+        SELECT 1 FROM pg_constraint 
+        WHERE conname = 'profiles_subscription_status_check' 
+        AND conrelid = 'public.profiles'::regclass
+    ) THEN
+        ALTER TABLE public.profiles 
+        ADD CONSTRAINT profiles_subscription_status_check 
+        CHECK (subscription_status IN ('active', 'expired', 'suspended', 'trial'));
+    END IF;
+END $$;
+
 -- 2. Profiles tablosu için RLS aktif et
 ALTER TABLE public.profiles ENABLE ROW LEVEL SECURITY;
 
@@ -66,12 +93,32 @@ CREATE TRIGGER on_auth_user_created
     EXECUTE FUNCTION public.handle_new_user();
 
 -- 6. Admin kullanıcı için is_admin flag'ini ayarla
--- flixify@admin.com kullanıcısını admin yap
-UPDATE public.profiles 
-SET is_admin = true 
-WHERE email = 'flixify@admin.com' 
-   OR email LIKE '%@admin%'
-   OR id IN (SELECT id FROM auth.users WHERE email = 'flixify@admin.com');
+-- Önce auth.users'dan admin email'ini bul, sonra profiles'ta güncelle
+DO $$
+DECLARE
+    admin_user_id UUID;
+BEGIN
+    -- auth.users'dan flixify@admin.com kullanıcısını bul
+    SELECT id INTO admin_user_id 
+    FROM auth.users 
+    WHERE email = 'flixify@admin.com' 
+    LIMIT 1;
+    
+    -- Eğer bulunduysa, profiles tablosunda is_admin=true yap
+    IF admin_user_id IS NOT NULL THEN
+        UPDATE public.profiles 
+        SET is_admin = true 
+        WHERE id = admin_user_id;
+        
+        -- Eğer profil yoksa oluştur
+        IF NOT FOUND THEN
+            INSERT INTO public.profiles (id, email, full_name, is_admin, subscription_status)
+            SELECT id, email, 'Admin User', true, 'active'
+            FROM auth.users 
+            WHERE id = admin_user_id;
+        END IF;
+    END IF;
+END $$;
 
 -- 7. Mevcut kullanıcılar için eksik profilleri oluştur
 INSERT INTO public.profiles (id, email, full_name, is_admin, subscription_status)
