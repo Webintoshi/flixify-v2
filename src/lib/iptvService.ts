@@ -1,182 +1,206 @@
-import { supabase } from './supabase';
+/**
+ * FLIXIFY IPTV SERVICE - Xtream Codes API
+ * 
+ * Vultr proxy sunucusu üzerinden Xtream Codes API'ye istek atar
+ * Proxy: https://api.flixify.pro (Coolify) veya http://<VULTR_IP>:3001 (geçici)
+ * 
+ * Xtream Codes API Endpoints:
+ * - /api/live-categories (Kategori listesi)
+ * - /api/live-streams (Kanal listesi)  
+ * - /api/vod (Film listesi)
+ * - /api/series (Dizi listesi)
+ * - Stream URL: /live/{username}/{password}/{stream_id}.m3u8
+ */
 
-// API Proxy URL
-// Ortam değişkeninden al, yoksa göreceli path kullan
-const API_BASE = import.meta.env.VITE_API_URL || '';
-// /proxy path'i nginx'den bağımsız, server.js'e yönlendirir
-const PROXY_BASE_URL = `/api/proxy`;
+// Proxy URL - Coolify'da api.flixify.pro domain'i port 3001'e yönlendirilecek
+// Geçici olarak doğrudan Vultr IP kullanılabilir
+const PROXY_BASE = 'https://api.flixify.pro';
+// const PROXY_BASE = 'http://<VULTR_IP>:3001'; // Domain aktif olana kadar
 
-console.log('[IPTV_SERVICE] API_BASE:', API_BASE);
-console.log('[IPTV_SERVICE] PROXY_BASE_URL:', PROXY_BASE_URL);
+const IPTV_BASE = 'http://sifiriptvdns.com:80';
 
-export async function getUserIptvUrl(userId: string): Promise<string | null> {
-    const { data, error } = await supabase
-        .from('profiles')
-        .select('m3u_url')
-        .eq('id', userId)
-        .single();
-
-    if (error || !data?.m3u_url) {
-        console.warn('[IPTV_SERVICE] Bu kullanıcı için tanımlı M3U bağlantısı bulunamadı.', error);
-        return null;
-    }
-
-    return data.m3u_url.trim();
+// Types
+export interface LiveCategory {
+  category_id: string;
+  category_name: string;
+  parent_id: number;
 }
 
-// URL'i temizle
-function cleanUrl(url: string): string {
-    // Boşlukları temizle
-    url = url.replace(/\s/g, '');
-    return url;
+export interface LiveStream {
+  num: number;
+  name: string;
+  stream_type: string;
+  stream_id: number;
+  stream_icon: string;
+  epg_channel_id: string;
+  added: string;
+  category_id: string;
+  custom_sid: string;
+  tv_archive: number;
+  direct_source: string;
+  tv_archive_duration: number;
 }
 
-export async function fetchUserPlaylist(m3uUrl: string): Promise<string | null> {
-    let trimmedUrl = cleanUrl(m3uUrl);
-
-    console.log('[IPTV_SERVICE] ========================================');
-    console.log('[IPTV_SERVICE] Starting playlist fetch for:', trimmedUrl.substring(0, 80) + '...');
-    console.log('[IPTV_SERVICE] Protocol:', trimmedUrl.startsWith('https') ? 'HTTPS' : 'HTTP');
-    console.log('[IPTV_SERVICE] Proxy URL:', PROXY_BASE_URL);
-    console.log('[IPTV_SERVICE] Window Location:', window.location.origin);
-    console.log('[IPTV_SERVICE] ========================================');
-
-    // Önce doğrudan fetch dene (bazı HTTPS M3U'lar çalışabilir)
-    console.log('[IPTV_SERVICE] Trying direct fetch first...');
-    try {
-        const controller = new AbortController();
-        const timeoutId = setTimeout(() => controller.abort(), 10000);
-        
-        const response = await fetch(trimmedUrl, {
-            signal: controller.signal,
-            headers: {
-                'User-Agent': 'Flixify/1.0',
-                'Accept': '*/*',
-            },
-            // CORS modu - eğer sunucu CORS destekliyorsa çalışır
-            mode: 'cors',
-        });
-        
-        clearTimeout(timeoutId);
-        
-        if (response.ok) {
-            const text = await response.text();
-            if (text.includes('#EXTM3U')) {
-                console.log('[IPTV_SERVICE] ✅ SUCCESS: Direct fetch worked!');
-                return text;
-            }
-        }
-    } catch (err: any) {
-        console.log('[IPTV_SERVICE] Direct fetch failed (expected for HTTP URLs):', err.message);
-    }
-
-    // Proxy üzerinden dene
-    console.log('[IPTV_SERVICE] Trying Proxy Server...');
-    try {
-        const proxyUrl = `${window.location.origin}/proxy?url=${encodeURIComponent(trimmedUrl)}`;
-        console.log('[IPTV_SERVICE] Full proxy URL:', proxyUrl);
-
-        const controller = new AbortController();
-        const timeoutId = setTimeout(() => controller.abort(), 30000);
-
-        const response = await fetch(proxyUrl, {
-            signal: controller.signal,
-            headers: {
-                'Origin': window.location.origin,
-            }
-        });
-
-        clearTimeout(timeoutId);
-
-        console.log('[IPTV_SERVICE] Response status:', response.status);
-
-        if (!response.ok) {
-            const errorText = await response.text();
-            console.error('[IPTV_SERVICE] Proxy error:', response.status, errorText.substring(0, 200));
-            throw new Error(`Proxy error: ${response.status}`);
-        }
-
-        const text = await response.text();
-        console.log('[IPTV_SERVICE] Response length:', text.length);
-
-        // M3U kontrolü
-        if (text.includes('#EXTM3U')) {
-            console.log('[IPTV_SERVICE] ✅ SUCCESS: Fetched M3U via Proxy');
-            console.log('[IPTV_SERVICE] Playlist size:', text.length, 'bytes');
-            return text;
-        } else {
-            console.warn('[IPTV_SERVICE] Response does not contain #EXTM3U');
-            console.warn('[IPTV_SERVICE] First 300 chars:', text.substring(0, 300));
-            
-            // HTML mi dönüyor?
-            if (text.includes('<!DOCTYPE') || text.includes('<html')) {
-                throw new Error('Proxy returned HTML instead of M3U');
-            }
-        }
-    } catch (err: any) {
-        console.error('[IPTV_SERVICE] Proxy error:', err.message);
-        
-        // Proxy çalışmıyorsa, public CORS proxy'leri dene
-        console.log('[IPTV_SERVICE] Trying public CORS proxies as fallback...');
-    }
-
-    // YEDEK: Public CORS proxies
-    const publicProxies = [
-        { 
-            name: 'AllOrigins', 
-            url: `https://api.allorigins.win/get?url=${encodeURIComponent(trimmedUrl)}&raw=true`,
-        },
-        { 
-            name: 'CORS Anywhere', 
-            url: `https://corsproxy.io/?${encodeURIComponent(trimmedUrl)}`,
-        }
-    ];
-
-    for (const proxy of publicProxies) {
-        console.log(`[IPTV_SERVICE] Trying ${proxy.name}...`);
-        try {
-            const controller = new AbortController();
-            const timeoutId = setTimeout(() => controller.abort(), 15000);
-
-            const response = await fetch(proxy.url, {
-                signal: controller.signal,
-            });
-
-            clearTimeout(timeoutId);
-
-            if (response.ok) {
-                const text = await response.text();
-                
-                if (text && text.includes('#EXTM3U')) {
-                    console.log(`[IPTV_SERVICE] ✅ SUCCESS: Fetched M3U via ${proxy.name}`);
-                    console.log('[IPTV_SERVICE] Playlist size:', text.length, 'bytes');
-                    return text;
-                }
-            }
-        } catch (err: any) {
-            console.warn(`[IPTV_SERVICE] ${proxy.name} error:`, err.message);
-        }
-    }
-
-    console.error('[IPTV_SERVICE] ❌ FAILED: All fetch methods failed');
-    console.log('[IPTV_SERVICE] ========================================');
-    return null;
+export interface VodStream {
+  num: number;
+  name: string;
+  stream_type: string;
+  stream_id: number;
+  stream_icon: string;
+  added: string;
+  category_id: string;
+  container_extension: string;
+  custom_sid: string;
+  direct_source: string;
 }
 
-// Stream URL'sini proxy üzerinden çevir
-export function getProxiedStreamUrl(originalUrl: string): string {
-    if (!originalUrl) return '';
+export interface Series {
+  num: number;
+  name: string;
+  series_id: number;
+  cover: string;
+  plot: string;
+  cast: string;
+  director: string;
+  genre: string;
+  releaseDate: string;
+  last_modified: string;
+  rating: string;
+  rating_5based: number;
+  backdrop_path: string[];
+  youtube_trailer: string;
+  episode_run_time: string;
+  category_id: string;
+}
+
+// Get credentials from localStorage
+function getCredentials(): { username: string | null; password: string | null } {
+  return {
+    username: localStorage.getItem('iptv_username'),
+    password: localStorage.getItem('iptv_password'),
+  };
+}
+
+// Generic API fetch function
+async function apiFetch<T>(endpoint: string, params: Record<string, string> = {}): Promise<T> {
+  const { username, password } = getCredentials();
+  
+  if (!username || !password) {
+    throw new Error('IPTV credentials missing. Please login again.');
+  }
+
+  const url = new URL(`${PROXY_BASE}${endpoint}`);
+  url.searchParams.set('username', username);
+  url.searchParams.set('password', password);
+  
+  Object.entries(params).forEach(([key, value]) => {
+    if (value) url.searchParams.set(key, value);
+  });
+
+  console.log('[IPTV_SERVICE] Fetching:', url.toString());
+
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), 30000);
+
+  try {
+    const res = await fetch(url.toString(), {
+      signal: controller.signal,
+      headers: {
+        'Accept': 'application/json',
+      },
+    });
     
-    console.log('[IPTV_SERVICE] Getting proxied URL for:', originalUrl.substring(0, 60) + '...');
-    
-    // Zaten HTTPS ise ve aynı origin ise proxy'ye gerek yok
-    if (originalUrl.startsWith('https://')) {
-        console.log('[IPTV_SERVICE] HTTPS URL, using directly');
-        return originalUrl;
+    clearTimeout(timeoutId);
+
+    if (!res.ok) {
+      const errorText = await res.text();
+      console.error('[IPTV_SERVICE] API error:', res.status, errorText);
+      throw new Error(`API error: ${res.status}`);
     }
-    
-    // HTTP stream'leri proxy'den geçir (CORS için gerekli)
-    const proxyUrl = `${window.location.origin}${PROXY_BASE_URL}?url=${encodeURIComponent(originalUrl)}`;
-    console.log('[IPTV_SERVICE] HTTP URL, using proxy:', proxyUrl.substring(0, 80) + '...');
-    return proxyUrl;
+
+    const data = await res.json();
+    console.log('[IPTV_SERVICE] Response:', endpoint, Array.isArray(data) ? `${data.length} items` : 'success');
+    return data;
+  } catch (error: any) {
+    clearTimeout(timeoutId);
+    console.error('[IPTV_SERVICE] Fetch error:', error.message);
+    throw error;
+  }
 }
+
+// IPTV Service API
+export const IPTVService = {
+  // Get live TV categories
+  getLiveCategories: (): Promise<LiveCategory[]> => 
+    apiFetch<LiveCategory[]>('/api/live-categories'),
+
+  // Get live TV streams
+  getLiveStreams: (category_id?: string): Promise<LiveStream[]> =>
+    apiFetch<LiveStream[]>('/api/live-streams', category_id ? { category_id } : {}),
+
+  // Get VOD (movies)
+  getVOD: (category_id?: string): Promise<VodStream[]> =>
+    apiFetch<VodStream[]>('/api/vod', category_id ? { category_id } : {}),
+
+  // Get VOD categories
+  getVodCategories: (): Promise<LiveCategory[]> =>
+    apiFetch<LiveCategory[]>('/api/vod-categories'),
+
+  // Get series
+  getSeries: (category_id?: string): Promise<Series[]> =>
+    apiFetch<Series[]>('/api/series', category_id ? { category_id } : {}),
+
+  // Get series categories
+  getSeriesCategories: (): Promise<LiveCategory[]> =>
+    apiFetch<LiveCategory[]>('/api/series-categories'),
+
+  // Get stream URL for live TV
+  getLiveStreamUrl: (stream_id: number): string => {
+    const { username, password } = getCredentials();
+    if (!username || !password) {
+      console.error('[IPTV_SERVICE] Credentials missing for stream URL');
+      return '';
+    }
+    return `${IPTV_BASE}/live/${username}/${password}/${stream_id}.m3u8`;
+  },
+
+  // Get VOD stream URL
+  getVodUrl: (stream_id: number, container_extension = 'mp4'): string => {
+    const { username, password } = getCredentials();
+    if (!username || !password) {
+      console.error('[IPTV_SERVICE] Credentials missing for VOD URL');
+      return '';
+    }
+    return `${IPTV_BASE}/movie/${username}/${password}/${stream_id}.${container_extension}`;
+  },
+
+  // Get series episode stream URL
+  getSeriesStreamUrl: (stream_id: number, container_extension = 'mp4'): string => {
+    const { username, password } = getCredentials();
+    if (!username || !password) {
+      console.error('[IPTV_SERVICE] Credentials missing for series URL');
+      return '';
+    }
+    return `${IPTV_BASE}/series/${username}/${password}/${stream_id}.${container_extension}`;
+  },
+
+  // Check if credentials exist
+  hasCredentials: (): boolean => {
+    const { username, password } = getCredentials();
+    return !!username && !!password;
+  },
+
+  // Clear credentials (logout)
+  clearCredentials: (): void => {
+    localStorage.removeItem('iptv_username');
+    localStorage.removeItem('iptv_password');
+  },
+
+  // Set credentials (login)
+  setCredentials: (username: string, password: string): void => {
+    localStorage.setItem('iptv_username', username);
+    localStorage.setItem('iptv_password', password);
+  },
+};
+
+export default IPTVService;

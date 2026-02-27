@@ -17,8 +17,22 @@ import {
   AlertCircle, RefreshCw
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
-import type { Channel } from '../lib/iptvApi';
-import type { ContentItem } from '../store/useContentStore';
+// Types
+interface ContentItem {
+  id: string;
+  name: string;
+  url?: string;
+  type?: 'live' | 'movie' | 'series';
+  group?: string;
+  poster?: string;
+  isLive?: boolean;
+}
+
+interface Channel {
+  id: string;
+  name: string;
+  group: string;
+}
 
 // Universal VideoPlayer props
 interface VideoPlayerProps {

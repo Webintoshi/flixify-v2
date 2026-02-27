@@ -1,12 +1,15 @@
 import React, { createContext, useContext, useEffect, useState, useCallback, useRef, useMemo } from 'react';
 import { Session, User } from '@supabase/supabase-js';
 import { supabase } from '../lib/supabase';
+import { IPTVService } from '../lib/iptvService';
 
 export interface Profile {
     id: string;
     account_number: string;
     subscription_expiry: string | null;
     m3u_url: string | null;
+    iptv_username: string | null;
+    iptv_password: string | null;
     is_banned: boolean;
     is_admin: boolean;
     created_at: string;
@@ -73,6 +76,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
             if (!error && data) {
                 setProfile(data);
                 profileCache.set(userId, { profile: data, timestamp: Date.now() });
+                
+                // IPTV credentials kaydet
+                if (data.iptv_username && data.iptv_password) {
+                    IPTVService.setCredentials(data.iptv_username, data.iptv_password);
+                }
             } else {
                 setProfile(null);
             }
@@ -88,6 +96,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         if (authState.user?.id) {
             profileCache.delete(authState.user.id);
         }
+        // IPTV credentials temizle
+        IPTVService.clearCredentials();
         await supabase.auth.signOut();
     }, [authState.user?.id]);
 
