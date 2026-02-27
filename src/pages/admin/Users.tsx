@@ -1,7 +1,7 @@
 import { useState, useEffect, useMemo } from 'react';
 import { 
     Search, Shield, Ban, CheckCircle, Save, X, Calendar, 
-    Users as UsersIcon, Monitor, Filter, Key, UserCircle,
+    Users as UsersIcon, Monitor, Filter,
     Download, CheckSquare, Square,
     RefreshCw
 } from 'lucide-react';
@@ -12,11 +12,12 @@ interface User {
     id: string;
     account_number: string;
     created_at: string;
-    is_banned: boolean;
-    subscription_expiry: string | null;
-    iptv_username: string | null;
-    iptv_password: string | null;
+    role: string;
+    subscription_status: string;
+    subscription_ends_at: string | null;
     max_concurrent_streams: number;
+    email: string;
+    full_name: string | null;
 }
 
 interface Filters {
@@ -37,10 +38,8 @@ export default function Users() {
     
     // Edit Modal State
     const [editingUser, setEditingUser] = useState<User | null>(null);
-    const [editIptvUsername, setEditIptvUsername] = useState('');
-    const [editIptvPassword, setEditIptvPassword] = useState('');
     const [editExpiry, setEditExpiry] = useState('');
-    const [editMaxStreams, setEditMaxStreams] = useState(1); // Varsayılan 1
+    const [editMaxStreams, setEditMaxStreams] = useState(1);
     const [updating, setUpdating] = useState(false);
 
     // Bulk Actions
@@ -56,7 +55,7 @@ export default function Users() {
         try {
             const { data, error } = await supabase
                 .from('profiles')
-                .select('*')
+                .select('id, account_number, created_at, role, subscription_status, subscription_ends_at, max_concurrent_streams, email, full_name')
                 .order('created_at', { ascending: false });
             
             if (error) throw error;
@@ -79,17 +78,28 @@ export default function Users() {
             // Search filter
             if (filters.search) {
                 const term = filters.search.replace(/\s/g, '').toLowerCase();
-                if (!user.account_number?.toLowerCase().includes(term)) return false;
+                const searchIn = [
+                    user.account_number,
+                    user.email,
+                    user.full_name
+                ].join(' ').toLowerCase();
+                if (!searchIn.includes(term)) return false;
             }
             
-            // Status filter
-            if (filters.status === 'active' && user.is_banned) return false;
-            if (filters.status === 'banned' && !user.is_banned) return false;
+            // Status filter - suspended = banned
+            const isSuspended = user.subscription_status === 'suspended';
+            if (filters.status === 'active' && isSuspended) return false;
+            if (filters.status === 'banned' && !isSuspended) return false;
             
             // Subscription filter
-            if (filters.subscription === 'active' && (!user.subscription_expiry || new Date(user.subscription_expiry) <= new Date())) return false;
-            if (filters.subscription === 'expired' && (!user.subscription_expiry || new Date(user.subscription_expiry) > new Date())) return false;
-            if (filters.subscription === 'none' && user.subscription_expiry) return false;
+            const hasActiveSub = user.subscription_status === 'active' || 
+                (user.subscription_ends_at && new Date(user.subscription_ends_at) > new Date());
+            const isExpired = user.subscription_status === 'expired' || 
+                (user.subscription_ends_at && new Date(user.subscription_ends_at) <= new Date());
+            
+            if (filters.subscription === 'active' && !hasActiveSub) return false;
+            if (filters.subscription === 'expired' && !isExpired) return false;
+            if (filters.subscription === 'none' && user.subscription_ends_at) return false;
             
             return true;
         }).sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
@@ -99,27 +109,29 @@ export default function Users() {
     const stats = useMemo(() => ({
         total: filteredUsers.length,
         selected: selectedUsers.length,
-        active: filteredUsers.filter(u => !u.is_banned).length,
-        banned: filteredUsers.filter(u => u.is_banned).length
+        active: filteredUsers.filter(u => u.subscription_status !== 'suspended').length,
+        banned: filteredUsers.filter(u => u.subscription_status === 'suspended').length
     }), [filteredUsers, selectedUsers]);
 
     // Toggle ban
     const handleBanToggle = async (user: User) => {
-        if (!confirm(`${user.account_number} numaralı hesabı ${user.is_banned ? 'aktif etmek' : 'yasaklamak'} istediğinize emin misiniz?`)) return;
+        const isSuspended = user.subscription_status === 'suspended';
+        if (!confirm(`${user.account_number} numaralı hesabı ${isSuspended ? 'aktif etmek' : 'askıya almak'} istediğinize emin misiniz?`)) return;
 
         try {
+            const newStatus = isSuspended ? 'active' : 'suspended';
             const { error } = await supabase
                 .from('profiles')
-                .update({ is_banned: !user.is_banned })
+                .update({ subscription_status: newStatus })
                 .eq('id', user.id);
 
             if (error) throw error;
             
             addActivity(
-                user.is_banned ? 'Hesap aktif edildi' : 'Hesap yasaklandı',
+                isSuspended ? 'Hesap aktif edildi' : 'Hesap askıya alındı',
                 user.account_number
             );
-            addNotification('success', `${user.account_number} ${user.is_banned ? 'aktif edildi' : 'yasaklandı'}`);
+            addNotification('success', `${user.account_number} ${isSuspended ? 'aktif edildi' : 'askıya alındı'}`);
             fetchUsers();
         } catch (err) {
             addNotification('error', 'İşlem başarısız: ' + (err as Error).message);
@@ -128,21 +140,22 @@ export default function Users() {
 
     // Bulk ban
     const handleBulkBan = async (ban: boolean) => {
-        if (!confirm(`${selectedUsers.length} kullanıcıyı ${ban ? 'yasaklamak' : 'aktif etmek'} istediğinize emin misiniz?`)) return;
+        if (!confirm(`${selectedUsers.length} kullanıcıyı ${ban ? 'askıya almak' : 'aktif etmek'} istediğinize emin misiniz?`)) return;
         
         try {
+            const newStatus = ban ? 'suspended' : 'active';
             const { error } = await supabase
                 .from('profiles')
-                .update({ is_banned: ban })
+                .update({ subscription_status: newStatus })
                 .in('id', selectedUsers);
 
             if (error) throw error;
             
             addActivity(
-                `Toplu ${ban ? 'yasaklama' : 'aktivasyon'}`,
+                `Toplu ${ban ? 'askıya alma' : 'aktivasyon'}`,
                 `${selectedUsers.length} kullanıcı`
             );
-            addNotification('success', `${selectedUsers.length} kullanıcı ${ban ? 'yasaklandı' : 'aktif edildi'}`);
+            addNotification('success', `${selectedUsers.length} kullanıcı ${ban ? 'askıya alındı' : 'aktif edildi'}`);
             clearSelection();
             fetchUsers();
         } catch (err) {
@@ -153,10 +166,8 @@ export default function Users() {
     // Edit modal
     const openEditModal = (user: User) => {
         setEditingUser(user);
-        setEditIptvUsername(user.iptv_username || '');
-        setEditIptvPassword(user.iptv_password || '');
-        setEditExpiry(user.subscription_expiry ? new Date(user.subscription_expiry).toISOString().split('T')[0] : '');
-        setEditMaxStreams(user.max_concurrent_streams || 1); // Varsayılan 1
+        setEditExpiry(user.subscription_ends_at ? new Date(user.subscription_ends_at).toISOString().split('T')[0] : '');
+        setEditMaxStreams(user.max_concurrent_streams || 1);
     };
 
     const handleUpdateUser = async () => {
@@ -167,9 +178,8 @@ export default function Users() {
             const { error } = await supabase
                 .from('profiles')
                 .update({
-                    iptv_username: editIptvUsername.trim() || null,
-                    iptv_password: editIptvPassword.trim() || null,
-                    subscription_expiry: editExpiry ? new Date(editExpiry).toISOString() : null,
+                    subscription_ends_at: editExpiry ? new Date(editExpiry).toISOString() : null,
+                    subscription_status: editExpiry && new Date(editExpiry) > new Date() ? 'active' : 'expired',
                     max_concurrent_streams: Math.max(1, Math.min(5, editMaxStreams)),
                 })
                 .eq('id', editingUser.id);
@@ -195,13 +205,13 @@ export default function Users() {
 
     // Export to CSV
     const exportCSV = () => {
-        const headers = ['Hesap No', 'Durum', 'Abonelik', 'Ekran Limiti', 'IPTV Kullanıcı', 'Kayıt Tarihi'];
+        const headers = ['Hesap No', 'E-posta', 'Durum', 'Abonelik', 'Abonelik Bitiş', 'Ekran Limiti', 'Kayıt Tarihi'];
         const rows = filteredUsers.map(u => [
             u.account_number,
-            u.is_banned ? 'Yasaklı' : 'Aktif',
-            u.subscription_expiry ? new Date(u.subscription_expiry).toLocaleDateString('tr-TR') : 'Süresiz',
+            u.email,
+            u.subscription_status === 'suspended' ? 'Askıya Alınmış' : u.subscription_status,
+            u.subscription_ends_at ? new Date(u.subscription_ends_at).toLocaleDateString('tr-TR') : 'Süresiz',
             u.max_concurrent_streams || 1,
-            u.iptv_username ? 'Evet' : 'Hayır',
             new Date(u.created_at).toLocaleDateString('tr-TR')
         ]);
         
@@ -379,7 +389,7 @@ export default function Users() {
                                 <th className="px-4 py-4 text-[10px] font-black uppercase tracking-[0.2em] text-gray-500 text-center">Durum</th>
                                 <th className="px-4 py-4 text-[10px] font-black uppercase tracking-[0.2em] text-gray-500">Abonelik</th>
                                 <th className="px-4 py-4 text-[10px] font-black uppercase tracking-[0.2em] text-gray-500 text-center">Ekran</th>
-                                <th className="px-4 py-4 text-[10px] font-black uppercase tracking-[0.2em] text-gray-500">IPTV</th>
+                                <th className="px-4 py-4 text-[10px] font-black uppercase tracking-[0.2em] text-gray-500">E-posta</th>
                                 <th className="px-4 py-4 text-[10px] font-black uppercase tracking-[0.2em] text-gray-500 text-right">İşlemler</th>
                             </tr>
                         </thead>
@@ -427,24 +437,28 @@ export default function Users() {
                                         </td>
                                         <td className="px-4 py-4 text-center">
                                             <span className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-[10px] font-black uppercase tracking-wider border ${
-                                                user.is_banned 
+                                                user.subscription_status === 'suspended'
                                                     ? 'bg-red-500/10 text-red-500 border-red-500/30' 
-                                                    : 'bg-green-500/10 text-green-500 border-green-500/30'
+                                                    : user.subscription_status === 'active'
+                                                    ? 'bg-green-500/10 text-green-500 border-green-500/30'
+                                                    : 'bg-yellow-500/10 text-yellow-500 border-yellow-500/30'
                                             }`}>
-                                                {user.is_banned ? <Ban size={10} /> : <CheckCircle size={10} />}
-                                                {user.is_banned ? 'Yasaklı' : 'Aktif'}
+                                                {user.subscription_status === 'suspended' ? <Ban size={10} /> : 
+                                                 user.subscription_status === 'active' ? <CheckCircle size={10} /> : <Clock size={10} />}
+                                                {user.subscription_status === 'suspended' ? 'Askıda' : 
+                                                 user.subscription_status === 'active' ? 'Aktif' : user.subscription_status}
                                             </span>
                                         </td>
                                         <td className="px-4 py-4">
-                                            {user.subscription_expiry ? (
+                                            {user.subscription_ends_at ? (
                                                 <div>
                                                     <span className={`text-sm font-bold ${
-                                                        new Date(user.subscription_expiry) > new Date() ? 'text-white' : 'text-red-500'
+                                                        new Date(user.subscription_ends_at) > new Date() ? 'text-white' : 'text-red-500'
                                                     }`}>
-                                                        {new Date(user.subscription_expiry).toLocaleDateString('tr-TR')}
+                                                        {new Date(user.subscription_ends_at).toLocaleDateString('tr-TR')}
                                                     </span>
                                                     <div className="text-[9px] text-gray-500 uppercase">
-                                                        {new Date(user.subscription_expiry) > new Date() ? 'Aktif' : 'Süresi Doldu'}
+                                                        {new Date(user.subscription_ends_at) > new Date() ? 'Aktif' : 'Süresi Doldu'}
                                                     </div>
                                                 </div>
                                             ) : (
@@ -458,29 +472,22 @@ export default function Users() {
                                             </span>
                                         </td>
                                         <td className="px-4 py-4">
-                                            {user.iptv_username ? (
-                                                <div className="flex items-center gap-2 text-green-400 bg-green-500/10 px-3 py-1.5 rounded-lg border border-green-500/20 w-fit">
-                                                    <UserCircle size={12} />
-                                                    <span className="text-xs font-bold">Aktif</span>
-                                                </div>
-                                            ) : (
-                                                <span className="text-gray-600 text-[10px] font-black uppercase bg-white/5 px-3 py-1.5 rounded-lg border border-white/5">
-                                                    Tanımlanmamış
-                                                </span>
-                                            )}
+                                            <span className="text-gray-400 text-xs">
+                                                {user.email}
+                                            </span>
                                         </td>
                                         <td className="px-4 py-4 text-right">
                                             <div className="flex items-center justify-end gap-2">
                                                 <button
                                                     onClick={() => handleBanToggle(user)}
                                                     className={`w-9 h-9 flex items-center justify-center rounded-xl transition-all ${
-                                                        user.is_banned 
+                                                        user.subscription_status === 'suspended'
                                                             ? 'bg-green-500/10 text-green-500 hover:bg-green-500/20' 
                                                             : 'bg-red-500/10 text-red-500 hover:bg-red-500/20'
                                                     }`}
-                                                    title={user.is_banned ? 'Aktif Et' : 'Yasakla'}
+                                                    title={user.subscription_status === 'suspended' ? 'Aktif Et' : 'Askıya Al'}
                                                 >
-                                                    {user.is_banned ? <Shield size={16} /> : <Ban size={16} />}
+                                                    {user.subscription_status === 'suspended' ? <Shield size={16} /> : <Ban size={16} />}
                                                 </button>
                                                 <button
                                                     onClick={() => openEditModal(user)}
@@ -530,37 +537,7 @@ export default function Users() {
                         </div>
 
                         <div className="p-6 space-y-6">
-                            {/* IPTV Username */}
-                            <div>
-                                <label className="flex items-center gap-2 text-xs font-black uppercase tracking-[0.15em] text-gray-400 mb-3">
-                                    <UserCircle size={14} className="text-primary" />
-                                    IPTV Kullanıcı Adı
-                                </label>
-                                <input
-                                    type="text"
-                                    value={editIptvUsername}
-                                    onChange={(e) => setEditIptvUsername(e.target.value)}
-                                    placeholder="Kullanıcı adı..."
-                                    className="w-full px-4 py-3 bg-black/50 border border-white/10 rounded-xl focus:ring-2 focus:ring-primary/50 outline-none text-sm"
-                                />
-                            </div>
-
-                            {/* IPTV Password */}
-                            <div>
-                                <label className="flex items-center gap-2 text-xs font-black uppercase tracking-[0.15em] text-gray-400 mb-3">
-                                    <Key size={14} className="text-primary" />
-                                    IPTV Şifre
-                                </label>
-                                <input
-                                    type="text"
-                                    value={editIptvPassword}
-                                    onChange={(e) => setEditIptvPassword(e.target.value)}
-                                    placeholder="Şifre..."
-                                    className="w-full px-4 py-3 bg-black/50 border border-white/10 rounded-xl focus:ring-2 focus:ring-primary/50 outline-none text-sm"
-                                />
-                            </div>
-
-                            {/* Subscription */}
+                            {/* Subscription -->
                             <div>
                                 <label className="flex items-center gap-2 text-xs font-black uppercase tracking-[0.15em] text-gray-400 mb-3">
                                     <Calendar size={14} className="text-primary" />

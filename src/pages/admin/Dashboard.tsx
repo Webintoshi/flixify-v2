@@ -87,26 +87,96 @@ export default function Dashboard() {
     const [recentUsers, setRecentUsers] = useState<any[]>([]);
     const [loadingUsers, setLoadingUsers] = useState(false);
 
-    // Fetch recent users
+    // Fetch real stats and recent users
+    const [realStats, setRealStats] = useState({
+        totalUsers: 0,
+        activeSubscriptions: 0,
+        expiredSubscriptions: 0,
+        bannedUsers: 0,
+        newUsersToday: 0,
+        revenue: 0,
+        systemHealth: 'healthy' as const
+    });
+
     useEffect(() => {
-        const fetchRecentUsers = async () => {
+        const fetchDashboardData = async () => {
             setLoadingUsers(true);
             try {
-                const { data, error } = await supabase.rpc('get_all_profiles');
-                if (error) throw error;
+                // Total users
+                const { count: totalUsers } = await supabase
+                    .from('profiles')
+                    .select('*', { count: 'exact', head: true });
+
+                // Active subscriptions
+                const { count: activeSubs } = await supabase
+                    .from('subscriptions')
+                    .select('*', { count: 'exact', head: true })
+                    .eq('status', 'active');
+
+                // Expired subscriptions
+                const { count: expiredSubs } = await supabase
+                    .from('subscriptions')
+                    .select('*', { count: 'exact', head: true })
+                    .eq('status', 'expired');
+
+                // Suspended/banned users
+                const { count: suspendedUsers } = await supabase
+                    .from('profiles')
+                    .select('*', { count: 'exact', head: true })
+                    .eq('subscription_status', 'suspended');
+
+                // New users today
+                const today = new Date();
+                today.setHours(0, 0, 0, 0);
+                const { count: newToday } = await supabase
+                    .from('profiles')
+                    .select('*', { count: 'exact', head: true })
+                    .gte('created_at', today.toISOString());
+
+                // Total revenue
+                const { data: payments } = await supabase
+                    .from('payments')
+                    .select('amount')
+                    .eq('status', 'completed');
                 
-                const sorted = (data || [])
-                    .sort((a: any, b: any) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
-                    .slice(0, 5);
-                setRecentUsers(sorted);
+                const totalRevenue = payments?.reduce((sum, p) => sum + (p.amount || 0), 0) || 0;
+
+                setRealStats({
+                    totalUsers: totalUsers || 0,
+                    activeSubscriptions: activeSubs || 0,
+                    expiredSubscriptions: expiredSubs || 0,
+                    bannedUsers: suspendedUsers || 0,
+                    newUsersToday: newToday || 0,
+                    revenue: totalRevenue,
+                    systemHealth: 'healthy'
+                });
+
+                // Recent users
+                const { data: recentData, error: recentError } = await supabase
+                    .from('profiles')
+                    .select('id, account_number, created_at, subscription_status')
+                    .order('created_at', { ascending: false })
+                    .limit(5);
+
+                if (recentError) throw recentError;
+                
+                setRecentUsers(recentData?.map(user => ({
+                    ...user,
+                    is_banned: user.subscription_status === 'suspended'
+                })) || []);
+
             } catch (err) {
-                console.error('Error fetching recent users:', err);
+                console.error('Error fetching dashboard data:', err);
             } finally {
                 setLoadingUsers(false);
             }
         };
-        fetchRecentUsers();
+
+        fetchDashboardData();
     }, []);
+
+    // Use real stats instead of context stats
+    const displayStats = realStats.totalUsers > 0 ? realStats : stats;
 
     // Track mount
     useEffect(() => {
@@ -116,8 +186,8 @@ export default function Dashboard() {
     const statCards = [
         { 
             label: 'Toplam Kullanıcı', 
-            value: stats.totalUsers.toLocaleString('tr-TR'), 
-            subtext: `${stats.newUsersToday} yeni bugün`,
+            value: displayStats.totalUsers.toLocaleString('tr-TR'), 
+            subtext: `${displayStats.newUsersToday} yeni bugün`,
             icon: Users, 
             color: 'text-blue-500', 
             bg: 'bg-blue-500', 
@@ -126,8 +196,8 @@ export default function Dashboard() {
         },
         { 
             label: 'Aktif Abonelik', 
-            value: stats.activeSubscriptions.toLocaleString('tr-TR'), 
-            subtext: `${stats.expiredSubscriptions} süresi dolmuş`,
+            value: displayStats.activeSubscriptions.toLocaleString('tr-TR'), 
+            subtext: `${displayStats.expiredSubscriptions} süresi dolmuş`,
             icon: Zap, 
             color: 'text-primary', 
             bg: 'bg-primary', 
@@ -135,18 +205,18 @@ export default function Dashboard() {
             trend: { value: 8, isPositive: true }
         },
         { 
-            label: 'Yasaklı Hesap', 
-            value: stats.bannedUsers.toLocaleString('tr-TR'), 
-            subtext: `${((stats.bannedUsers / stats.totalUsers) * 100).toFixed(1)}% oranında`,
+            label: 'Askıya Alınan', 
+            value: displayStats.bannedUsers.toLocaleString('tr-TR'), 
+            subtext: displayStats.totalUsers > 0 ? `${((displayStats.bannedUsers / displayStats.totalUsers) * 100).toFixed(1)}% oranında` : '0%',
             icon: Ban, 
             color: 'text-red-500', 
             bg: 'bg-red-500', 
             border: 'border-red-500/20' 
         },
         { 
-            label: 'Tahmini Gelir', 
-            value: `₺${(stats.revenue * 1000).toLocaleString('tr-TR')}`, 
-            subtext: 'Aylık tahmini',
+            label: 'Toplam Gelir', 
+            value: `₺${displayStats.revenue.toLocaleString('tr-TR')}`, 
+            subtext: 'Tamamlanan ödemeler',
             icon: DollarSign, 
             color: 'text-green-500', 
             bg: 'bg-green-500', 
@@ -291,7 +361,7 @@ export default function Dashboard() {
                 {/* Sidebar - 1 col */}
                 <div className="space-y-6">
                     {/* System Health */}
-                    <HealthIndicator status={stats.systemHealth} />
+                    <HealthIndicator status={displayStats.systemHealth} />
 
                     {/* Activity Log */}
                     <div className="bg-surface/40 border border-white/5 rounded-3xl p-6 backdrop-blur-xl">
