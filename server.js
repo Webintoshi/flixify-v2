@@ -7,7 +7,6 @@
  */
 
 import express from 'express';
-import { createProxyMiddleware } from 'http-proxy-middleware';
 import path from 'path';
 import { fileURLToPath } from 'url';
 
@@ -77,8 +76,8 @@ app.get('/proxy', async (req, res) => {
 // Static files - React build
 app.use(express.static(path.join(__dirname, 'dist')));
 
-// SPA routing - tüm istekleri index.html'e yönlendir
-app.get('*', (req, res) => {
+// SPA routing - tüm istekleri index.html'e yönlendir (en sonda olmalı)
+app.use((req, res) => {
     res.sendFile(path.join(__dirname, 'dist', 'index.html'));
 });
 
