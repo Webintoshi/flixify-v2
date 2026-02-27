@@ -5,12 +5,15 @@
 # STAGE 1: Build (with devDependencies)
 FROM node:20-alpine AS builder
 
+# Override NODE_ENV for build
+ENV NODE_ENV=development
+
 WORKDIR /app
 
 # Copy package files
 COPY package*.json ./
 
-# Install ALL dependencies (including devDependencies)
+# Install ALL dependencies (devDependencies included)
 RUN npm install
 
 # Copy source code
@@ -31,8 +34,10 @@ WORKDIR /app
 # Copy built app from builder
 COPY --from=builder /app/dist ./dist
 COPY --from=builder /app/proxy-server.js ./
-COPY --from=builder /app/node_modules ./node_modules
 COPY --from=builder /app/package*.json ./
+
+# Install production dependencies only
+RUN npm install --production
 
 # Nginx config - SPA routing + Proxy
 RUN echo 'server { \
