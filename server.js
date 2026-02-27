@@ -77,14 +77,11 @@ const proxyHandler = async (req, res) => {
 };
 
 // ========== ROUTES ==========
-// Proxy routes - /proxy path'i nginx'den bağımsız
-app.get('/proxy', proxyHandler);
+// Proxy route - root level'da (nginx/Vercel'den bağımsız)
+app.get('/p', proxyHandler);
 
-// Health check
+// Health check  
 app.get('/api/health', (req, res) => res.json({ ok: true, timestamp: new Date().toISOString() }));
-
-// Geriye dönük uyumluluk için /api/p de kalsın
-app.get('/api/p', proxyHandler);
 
 // Outbound IP check
 app.get('/api/ip', async (req, res) => {

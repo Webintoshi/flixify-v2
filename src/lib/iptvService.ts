@@ -4,7 +4,7 @@ import { supabase } from './supabase';
 // Ortam değişkeninden al, yoksa göreceli path kullan
 const API_BASE = import.meta.env.VITE_API_URL || '';
 // /proxy path'i nginx'den bağımsız, server.js'e yönlendirir
-const PROXY_BASE_URL = `/proxy`;
+const PROXY_BASE_URL = `/p`;
 
 console.log('[IPTV_SERVICE] API_BASE:', API_BASE);
 console.log('[IPTV_SERVICE] PROXY_BASE_URL:', PROXY_BASE_URL);
