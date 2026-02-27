@@ -1,87 +1,105 @@
-/**
- * FLIXIFY V2 - Combined Server (ES Module)
- * 
- * Tek sunucuda:
- * - Static React build (dist/)
- * - /proxy endpoint (IPTV için)
- */
-
 import express from 'express';
-import path from 'path';
-import { fileURLToPath } from 'url';
-
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
+import { createServer } from 'http';
 
 const app = express();
 const PORT = process.env.PORT || 3000;
 
-// CORS Headers
+// Trust proxy (Coolify/nginx önünde çalışırken gerekli)
+app.set('trust proxy', true);
+
+// Body parser (gerekirse)
+app.use(express.json());
+
+// CORS headers (gerekirse)
 app.use((req, res, next) => {
-    res.setHeader('Access-Control-Allow-Origin', '*');
-    res.setHeader('Access-Control-Allow-Methods', 'GET, HEAD, OPTIONS');
-    res.setHeader('Access-Control-Allow-Headers', '*');
-    res.setHeader('Access-Control-Expose-Headers', '*');
-    
-    if (req.method === 'OPTIONS') {
-        res.status(200).end();
-        return;
-    }
-    next();
+  res.header('Access-Control-Allow-Origin', '*');
+  res.header('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
+  res.header('Access-Control-Allow-Headers', 'Origin, X-Requested-With, Content-Type, Accept');
+  next();
 });
 
-// /proxy endpoint - IPTV için
-app.get('/proxy', async (req, res) => {
-    const targetUrl = req.query.url;
+// ========== PROXY ENDPOINT ==========
+// BOTH /proxy and /proxy/ (with trailing slash)
+const proxyHandler = async (req, res) => {
+  const targetUrl = req.query.url;
+  
+  if (!targetUrl) {
+    console.log('[PROXY] ERROR: Missing url parameter');
+    return res.status(400).json({ error: 'Missing url parameter' });
+  }
+  
+  console.log(`[PROXY] Fetching: ${targetUrl}`);
+  
+  try {
+    // URL'i decode et
+    const decodedUrl = decodeURIComponent(targetUrl);
+    console.log(`[PROXY] Decoded URL: ${decodedUrl}`);
     
-    if (!targetUrl) {
-        return res.status(400).json({ error: 'URL parametresi eksik. ?url=http://...' });
+    // Fetch with timeout
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 30000);
+    
+    const response = await fetch(decodedUrl, {
+      method: 'GET',
+      headers: {
+        'User-Agent': req.headers['user-agent'] || 'VLC/3.0.18 LibVLC/3.0.18',
+        'Accept': '*/*',
+        'Accept-Encoding': 'gzip, deflate',
+      },
+      signal: controller.signal
+    });
+    
+    clearTimeout(timeout);
+    
+    console.log(`[PROXY] Response: ${response.status} ${response.statusText}`);
+    
+    // Response headers'ı kopyala
+    const contentType = response.headers.get('content-type');
+    if (contentType) {
+      res.setHeader('Content-Type', contentType);
     }
     
-    console.log(`[PROXY] ${targetUrl.substring(0, 80)}...`);
+    // Body'yi stream olarak gönder
+    const body = await response.text();
+    console.log(`[PROXY] Body length: ${body.length} bytes`);
     
-    try {
-        const response = await fetch(targetUrl, {
-            headers: {
-                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
-                'Accept': '*/*',
-                'Accept-Language': 'tr-TR,tr;q=0.9',
-            },
-        });
-        
-        if (!response.ok) {
-            console.error(`[PROXY] HTTP ${response.status}`);
-            return res.status(response.status).json({ 
-                error: 'Target server error', 
-                status: response.status 
-            });
-        }
-        
-        const text = await response.text();
-        
-        if (!text.includes('#EXTM3U')) {
-            console.warn('[PROXY] Non-M3U response');
-        }
-        
-        console.log(`[PROXY] Success - ${text.length} bytes`);
-        res.setHeader('Content-Type', 'application/vnd.apple.mpegurl');
-        res.send(text);
-        
-    } catch (err) {
-        console.error('[PROXY] Error:', err.message);
-        res.status(500).json({ error: 'Proxy error', message: err.message });
+    // M3U kontrolü
+    if (body.includes('#EXTM3U')) {
+      console.log('[PROXY] ✅ Valid M3U playlist');
     }
+    
+    res.status(response.status).send(body);
+    
+  } catch (error) {
+    console.error('[PROXY] ERROR:', error.message);
+    res.status(500).json({ 
+      error: 'Proxy error', 
+      message: error.message,
+      url: targetUrl 
+    });
+  }
+};
+
+app.get('/proxy', proxyHandler);
+app.get('/proxy/', proxyHandler);
+
+// Test endpoint
+app.get('/health', (req, res) => {
+  res.json({ status: 'ok', time: new Date().toISOString() });
 });
 
-// Static files - React build
-app.use(express.static(path.join(__dirname, 'dist')));
+// ========== STATIC FILES (React App) ==========
+app.use(express.static('/app/dist'));
 
-// SPA routing - tüm istekleri index.html'e yönlendir (en sonda olmalı)
-app.use((req, res) => {
-    res.sendFile(path.join(__dirname, 'dist', 'index.html'));
+// SPA fallback - EN SONDA olmalı!
+app.get('*', (req, res) => {
+  res.sendFile('/app/dist/index.html');
 });
 
-app.listen(PORT, () => {
-    console.log(`[SERVER] Running on port ${PORT}`);
-    console.log(`[SERVER] Proxy: http://localhost:${PORT}/proxy`);
+// HTTP server oluştur
+const server = createServer(app);
+
+server.listen(PORT, () => {
+  console.log(`[SERVER] Running on port ${PORT}`);
+  console.log(`[SERVER] Health check: http://localhost:${PORT}/health`);
 });

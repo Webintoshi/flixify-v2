@@ -40,7 +40,7 @@ export async function fetchUserPlaylist(m3uUrl: string): Promise<string | null> 
 
     console.log('[IPTV_SERVICE] Trying Coolify Proxy Server...');
     try {
-        const proxyUrl = `${PROXY_BASE_URL}/?url=${encodeURIComponent(trimmedUrl)}`;
+        const proxyUrl = `${PROXY_BASE_URL}?url=${encodeURIComponent(trimmedUrl)}`;
         console.log('[IPTV_SERVICE] Full proxy URL:', proxyUrl);
 
         const controller = new AbortController();
