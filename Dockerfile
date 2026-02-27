@@ -1,27 +1,38 @@
 # ============================================
-# FLIXIFY V2 - Frontend + Proxy Combined
-# ============================================
-# Bu Dockerfile hem React frontend'i hem de 
-# IPTV proxy server'ı aynı container'da çalıştırır.
+# FLIXIFY V2 - Multi-stage Build
 # ============================================
 
-FROM node:20-alpine
+# STAGE 1: Build (with devDependencies)
+FROM node:20-alpine AS builder
 
-# Install nginx ve supervisor
-RUN apk add --no-cache nginx supervisor
-
-# Work directory
 WORKDIR /app
 
 # Copy package files
 COPY package*.json ./
-RUN npm ci
+
+# Install ALL dependencies (including devDependencies)
+RUN npm install
 
 # Copy source code
 COPY . .
 
 # Build React app
 RUN npm run build
+
+# ============================================
+# STAGE 2: Production (runtime only)
+FROM node:20-alpine AS production
+
+# Install nginx and supervisor
+RUN apk add --no-cache nginx supervisor
+
+WORKDIR /app
+
+# Copy built app from builder
+COPY --from=builder /app/dist ./dist
+COPY --from=builder /app/proxy-server.js ./
+COPY --from=builder /app/node_modules ./node_modules
+COPY --from=builder /app/package*.json ./
 
 # Nginx config - SPA routing + Proxy
 RUN echo 'server { \
