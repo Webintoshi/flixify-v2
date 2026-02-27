@@ -2,7 +2,10 @@ import { create } from 'zustand';
 import { M3UChannel } from '../lib/m3uParser';
 import { isTurkishChannel, sortTurkishChannels } from '../lib/turkishChannels';
 import { supabase } from '../lib/supabase';
-import { getUserIptvUrl, fetchUserPlaylist } from '../lib/iptvService';
+// Eski iptvService fonksiyonları kaldırıldı - Xtream Codes API'ye geçiş yapıldı
+// Bu dosya artık kullanılmıyor, yerine useIPTVStore kullanın
+const getUserIptvUrl = async (): Promise<string | null> => null;
+const fetchUserPlaylist = async (): Promise<string | null> => null;
 
 // Kanalın Canlı TV olup olmadığını kontrol et (VOD'ları harici tut)
 function isLiveChannel(channel: Partial<M3UChannel>): boolean {
@@ -156,13 +159,16 @@ export const usePlaylistCache = create<PlaylistCacheState>()((set, get) => ({
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) throw new Error("Giriş yapılmış bir kullanıcı bulunamadı.");
 
-      const url = await getUserIptvUrl(user.id);
+      const url = await getUserIptvUrl();
       if (!url) throw new Error("Bu kullanıcı için tanımlı IPTV bağlantısı bulunamadı.");
 
-      const content = await fetchUserPlaylist(url);
-      if (!content) throw new Error("Oynatma listesi indirilemedi.");
+      const content = await fetchUserPlaylist();
+      if (!content) {
+        set({ isLoading: false, progress: 0 });
+        return;
+      }
 
-      const lines = content.split('\n');
+      const lines = (content || '').split('\n');
       const channels: M3UChannel[] = [];
       const countryCounts = new Map<string, number>();
       const channelsByCountry = new Map<string, M3UChannel[]>();

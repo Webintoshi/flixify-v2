@@ -4,7 +4,6 @@ import { VideoPlayer } from './VideoPlayer';
 import { Play, Info, ChevronDown, Filter, Film, Search } from 'lucide-react';
 import { motion } from 'framer-motion';
 import { IPTVService, VodStream } from '../lib/iptvService';
-import { useAuth } from '../contexts/AuthContext';
 import { UpgradePrompt } from './UpgradePrompt';
 
 // VOD Category type
@@ -28,12 +27,12 @@ interface MovieItem {
   backdrop: string;
   category: string;
   container_extension: string;
+  url?: string;
 }
 
 const genres = ["Tümü", "Aksiyon", "Komedi", "Dram", "Bilim Kurgu", "Korku", "Romantik", "Belgesel"];
 
 export function MoviesPage() {
-  const { profile } = useAuth();
   
   // State
   const [loading, setLoading] = useState(true);

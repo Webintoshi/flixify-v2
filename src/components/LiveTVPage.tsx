@@ -5,10 +5,10 @@
  */
 
 import { useEffect, useState, useCallback, useMemo } from 'react';
-import { useNavigate } from 'react-router-dom';
+
 import { VideoPlayer } from './VideoPlayer';
 import { IPTVService, LiveCategory, LiveStream } from '../lib/iptvService';
-import { useProfile } from '../contexts/AuthContext';
+
 import { UpgradePrompt } from './UpgradePrompt';
 import {
   Search, Tv, Play, Grid3X3, List, ArrowLeft, 
@@ -16,8 +16,6 @@ import {
 } from 'lucide-react';
 
 export function LiveTVPage() {
-  const navigate = useNavigate();
-  const profile = useProfile();
   
   // Data state
   const [categories, setCategories] = useState<LiveCategory[]>([]);
