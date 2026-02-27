@@ -206,7 +206,7 @@ export const HomePage = memo(function HomePage() {
   }, []);
 
   // No Content State
-  if (!profile?.m3u_url) {
+  if (!profile?.iptv_username || profile?.subscription_status === 'expired') {
     return (
       <div className="min-h-screen bg-background flex flex-col items-center justify-center text-center p-4">
         <Header />

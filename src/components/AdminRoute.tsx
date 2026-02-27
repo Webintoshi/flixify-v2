@@ -17,7 +17,7 @@ export const AdminRoute: React.FC = () => {
         return <Navigate to="/admin/login" replace />;
     }
 
-    if (!profile?.is_admin) {
+    if (!profile || (profile.role !== 'admin' && profile.role !== 'superadmin')) {
         return (
             <div className="min-h-screen bg-background flex flex-col items-center justify-center p-4">
                 <div className="bg-surface/90 p-8 rounded-2xl border border-red-500/20 text-center max-w-md shadow-2xl backdrop-blur-sm">
@@ -39,7 +39,7 @@ export const AdminRoute: React.FC = () => {
         );
     }
 
-    if (profile.is_banned) {
+    if (profile.subscription_status === 'suspended') {
         return <Navigate to="/" replace />;
     }
 
