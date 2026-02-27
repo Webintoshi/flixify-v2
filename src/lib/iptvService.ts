@@ -1,5 +1,9 @@
 import { supabase } from './supabase';
 
+// Coolify Proxy Server URL
+// Coolify'da ayrı bir service olarak çalışan proxy
+const PROXY_BASE_URL = import.meta.env.VITE_PROXY_URL || 'http://localhost:3001';
+
 export async function getUserIptvUrl(userId: string): Promise<string | null> {
     const { data, error } = await supabase
         .from('profiles')
@@ -19,10 +23,6 @@ export async function getUserIptvUrl(userId: string): Promise<string | null> {
 function cleanUrl(url: string): string {
     // Boşlukları temizle
     url = url.replace(/\s/g, '');
-    
-    // Port 80'i kaldır (HTTP default zaten)
-    url = url.replace(':80/', '/');
-    
     return url;
 }
 
@@ -32,74 +32,70 @@ export async function fetchUserPlaylist(m3uUrl: string): Promise<string | null> 
     console.log('[IPTV_SERVICE] ========================================');
     console.log('[IPTV_SERVICE] Starting playlist fetch for:', trimmedUrl.substring(0, 80) + '...');
     console.log('[IPTV_SERVICE] Protocol:', trimmedUrl.startsWith('https') ? 'HTTPS' : 'HTTP');
+    console.log('[IPTV_SERVICE] Proxy URL:', PROXY_BASE_URL);
     console.log('[IPTV_SERVICE] ========================================');
 
-    // NOT: IPTV sunucuları genellikle HTTP üzerinde çalışır
-    // HTTPS sayfadan HTTP erişim Mixed Content hatası verir
-    // Bu yüzden proxy kullanmak zorundayız
+    // IPTV sunucuları HTTP üzerinde çalışır
+    // Coolify Proxy Server üzerinden istek at
 
-    // ÖNCELİK 1: Flixify Proxy (Server-side) - EN GÜVENİLİR YÖNTEM
-    console.log('[IPTV_SERVICE] STEP 1: Trying Flixify Proxy...');
+    console.log('[IPTV_SERVICE] Trying Coolify Proxy Server...');
     try {
-        const proxyUrl = `/api/proxy?url=${encodeURIComponent(trimmedUrl)}`;
-        console.log('[IPTV_SERVICE] Proxy URL:', proxyUrl);
+        const proxyUrl = `${PROXY_BASE_URL}/?url=${encodeURIComponent(trimmedUrl)}`;
+        console.log('[IPTV_SERVICE] Full proxy URL:', proxyUrl);
 
         const controller = new AbortController();
-        const timeoutId = setTimeout(() => controller.abort(), 25000);
+        const timeoutId = setTimeout(() => controller.abort(), 30000);
 
-        const proxyResponse = await fetch(proxyUrl, {
+        const response = await fetch(proxyUrl, {
             signal: controller.signal,
-            credentials: 'same-origin'
+            headers: {
+                'Origin': window.location.origin,
+            }
         });
 
         clearTimeout(timeoutId);
 
-        const responseText = await proxyResponse.text();
-        
-        console.log('[IPTV_SERVICE] Proxy response status:', proxyResponse.status);
-        console.log('[IPTV_SERVICE] Response length:', responseText.length);
+        console.log('[IPTV_SERVICE] Response status:', response.status);
 
-        // JSON hata mesajı mı?
-        if (responseText.startsWith('{')) {
-            try {
-                const errorData = JSON.parse(responseText);
-                console.error('[IPTV_SERVICE] Proxy returned error:', errorData);
-                throw new Error(errorData.error || 'Proxy error');
-            } catch (e) {
-                // JSON değil, devam et
+        if (!response.ok) {
+            const errorText = await response.text();
+            console.error('[IPTV_SERVICE] Proxy error:', response.status, errorText.substring(0, 200));
+            throw new Error(`Proxy error: ${response.status}`);
+        }
+
+        const text = await response.text();
+        console.log('[IPTV_SERVICE] Response length:', text.length);
+
+        // M3U kontrolü
+        if (text.includes('#EXTM3U')) {
+            console.log('[IPTV_SERVICE] ✅ SUCCESS: Fetched M3U via Coolify Proxy');
+            console.log('[IPTV_SERVICE] Playlist size:', text.length, 'bytes');
+            return text;
+        } else {
+            console.warn('[IPTV_SERVICE] Response does not contain #EXTM3U');
+            console.warn('[IPTV_SERVICE] First 300 chars:', text.substring(0, 300));
+            
+            // HTML mi dönüyor?
+            if (text.includes('<!DOCTYPE') || text.includes('<html')) {
+                throw new Error('Proxy returned HTML instead of M3U');
             }
         }
-
-        // M3U içeriği mi kontrol et
-        if (responseText.includes('#EXTM3U')) {
-            console.log('[IPTV_SERVICE] ✅ SUCCESS: Fetched M3U via Flixify Proxy');
-            console.log('[IPTV_SERVICE] Playlist size:', responseText.length, 'bytes');
-            return responseText;
-        } else {
-            console.warn('[IPTV_SERVICE] Proxy returned non-M3U content (first 200 chars):', responseText.substring(0, 200));
-        }
     } catch (err: any) {
-        console.warn('[IPTV_SERVICE] Flixify Proxy error:', err.message);
+        console.error('[IPTV_SERVICE] Coolify Proxy error:', err.message);
+        
+        // Proxy çalışmıyorsa, public CORS proxy'leri dene
+        console.log('[IPTV_SERVICE] Trying public CORS proxies as fallback...');
     }
 
-    // ÖNCELİK 2: Public CORS proxies (yedek)
-    console.log('[IPTV_SERVICE] STEP 2: Trying public CORS proxies...');
-    
+    // YEDEK: Public CORS proxies
     const publicProxies = [
         { 
             name: 'AllOrigins', 
             url: `https://api.allorigins.win/get?url=${encodeURIComponent(trimmedUrl)}&raw=true`,
-            extract: (text: string) => text
-        },
-        { 
-            name: 'ThingProxy', 
-            url: `https://thingproxy.freeboard.io/fetch/${trimmedUrl}`,
-            extract: (text: string) => text
         },
         { 
             name: 'CORS Anywhere', 
             url: `https://corsproxy.io/?${encodeURIComponent(trimmedUrl)}`,
-            extract: (text: string) => text
         }
     ];
 
@@ -111,26 +107,18 @@ export async function fetchUserPlaylist(m3uUrl: string): Promise<string | null> 
 
             const response = await fetch(proxy.url, {
                 signal: controller.signal,
-                headers: {
-                    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
-                }
             });
 
             clearTimeout(timeoutId);
 
             if (response.ok) {
                 const text = await response.text();
-                const extracted = proxy.extract(text);
                 
-                if (extracted && extracted.includes('#EXTM3U')) {
+                if (text && text.includes('#EXTM3U')) {
                     console.log(`[IPTV_SERVICE] ✅ SUCCESS: Fetched M3U via ${proxy.name}`);
-                    console.log('[IPTV_SERVICE] Playlist size:', extracted.length, 'bytes');
-                    return extracted;
-                } else {
-                    console.warn(`[IPTV_SERVICE] ${proxy.name} returned non-M3U content`);
+                    console.log('[IPTV_SERVICE] Playlist size:', text.length, 'bytes');
+                    return text;
                 }
-            } else {
-                console.warn(`[IPTV_SERVICE] ${proxy.name} HTTP error:`, response.status);
             }
         } catch (err: any) {
             console.warn(`[IPTV_SERVICE] ${proxy.name} error:`, err.message);
@@ -152,5 +140,5 @@ export function getProxiedStreamUrl(originalUrl: string): string {
     }
     
     // HTTP stream'leri proxy'den geçir
-    return `/api/proxy?url=${encodeURIComponent(originalUrl)}`;
+    return `${PROXY_BASE_URL}/?url=${encodeURIComponent(originalUrl)}`;
 }

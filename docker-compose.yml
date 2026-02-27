@@ -1,0 +1,41 @@
+version: '3.8'
+
+services:
+  # Frontend (Vite/React build)
+  frontend:
+    image: node:20-alpine
+    working_dir: /app
+    volumes:
+      - .:/app
+      - /app/node_modules
+    command: sh -c "npm install && npm run build && npx serve -s dist -l 3000"
+    ports:
+      - "3000:3000"
+    environment:
+      - NODE_ENV=production
+      - VITE_SUPABASE_URL=${VITE_SUPABASE_URL}
+      - VITE_SUPABASE_ANON_KEY=${VITE_SUPABASE_ANON_KEY}
+      - VITE_PROXY_URL=${VITE_PROXY_URL:-http://proxy:3001}
+    depends_on:
+      - proxy
+    networks:
+      - flixify-network
+
+  # Proxy Server (IPTV için)
+  proxy:
+    image: node:20-alpine
+    working_dir: /app
+    volumes:
+      - ./proxy-server.js:/app/proxy-server.js
+    command: node proxy-server.js
+    ports:
+      - "3001:3001"
+    environment:
+      - PORT=3001
+      - ALLOWED_ORIGINS=${ALLOWED_ORIGINS:-https://flixify.pro,http://localhost:5173}
+    networks:
+      - flixify-network
+
+networks:
+  flixify-network:
+    driver: bridge
