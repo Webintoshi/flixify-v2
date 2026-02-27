@@ -154,34 +154,41 @@ export const IPTVService = {
   getSeriesCategories: (): Promise<LiveCategory[]> =>
     apiFetch<LiveCategory[]>('/api/series-categories'),
 
-  // Get stream URL for live TV
+  // Get stream URL for live TV (PROXY üzerinden)
   getLiveStreamUrl: (stream_id: number): string => {
     const { username, password } = getCredentials();
     if (!username || !password) {
       console.error('[IPTV_SERVICE] Credentials missing for stream URL');
       return '';
     }
-    return `${IPTV_BASE}/live/${username}/${password}/${stream_id}.m3u8`;
+    const originalUrl = `${IPTV_BASE}/live/${username}/${password}/${stream_id}.m3u8`;
+    // GEÇİCİ: Proxy üzerinden geçir (HTTPS sorunu için)
+    return `${PROXY_BASE}/proxy?url=${encodeURIComponent(originalUrl)}`;
   },
 
-  // Get VOD stream URL
+  // Get VOD stream URL (PROXY üzerinden)
   getVodUrl: (stream_id: number, container_extension = 'mp4'): string => {
     const { username, password } = getCredentials();
     if (!username || !password) {
       console.error('[IPTV_SERVICE] Credentials missing for VOD URL');
       return '';
     }
-    return `${IPTV_BASE}/movie/${username}/${password}/${stream_id}.${container_extension}`;
+    const originalUrl = `${IPTV_BASE}/movie/${username}/${password}/${stream_id}.${container_extension}`;
+    // GEÇİCİ: Proxy üzerinden geçir (HTTPS sorunu için)
+    return `${PROXY_BASE}/proxy?url=${encodeURIComponent(originalUrl)}`;
+  },
   },
 
-  // Get series episode stream URL
+  // Get series episode stream URL (PROXY üzerinden)
   getSeriesStreamUrl: (stream_id: number, container_extension = 'mp4'): string => {
     const { username, password } = getCredentials();
     if (!username || !password) {
       console.error('[IPTV_SERVICE] Credentials missing for series URL');
       return '';
     }
-    return `${IPTV_BASE}/series/${username}/${password}/${stream_id}.${container_extension}`;
+    const originalUrl = `${IPTV_BASE}/series/${username}/${password}/${stream_id}.${container_extension}`;
+    // GEÇİCİ: Proxy üzerinden geçir (HTTPS sorunu için)
+    return `${PROXY_BASE}/proxy?url=${encodeURIComponent(originalUrl)}`;
   },
 
   // Check if credentials exist

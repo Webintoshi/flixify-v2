@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { CreditCard, Zap, Receipt, ExternalLink, Loader2 } from 'lucide-react';
-import { supabase } from '@/lib/supabase';
+import { supabase } from '../../lib/supabase';
 
 interface PricingPlan {
     id: string;
@@ -38,7 +38,7 @@ export function PlansPage() {
             if (fetchError) throw fetchError;
 
             if (data) {
-                const formattedPlans: PricingPlan[] = data.map(plan => ({
+                const formattedPlans: PricingPlan[] = data.map((plan: any) => ({
                     id: plan.id,
                     name: plan.name,
                     months: plan.months || 1,

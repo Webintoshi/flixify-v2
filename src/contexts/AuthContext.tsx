@@ -6,12 +6,13 @@ import { IPTVService } from '../lib/iptvService';
 export interface Profile {
     id: string;
     account_number: string;
-    subscription_expiry: string | null;
-    m3u_url: string | null;
+    subscription_ends_at: string | null;
+    subscription_status: string;
     iptv_username: string | null;
     iptv_password: string | null;
-    is_banned: boolean;
-    is_admin: boolean;
+    iptv_expiry_date: string | null;
+    iptv_status: string;
+    role: string;
     created_at: string;
 }
 

@@ -1,6 +1,6 @@
 import { useState, useEffect, useMemo } from 'react';
 import { 
-    Search, Shield, Ban, CheckCircle, Save, X, Calendar, 
+    Search, Shield, Ban, CheckCircle, Save, X, Calendar, Clock,
     Users as UsersIcon, Monitor, Filter,
     Download, CheckSquare, Square,
     RefreshCw
@@ -170,6 +170,12 @@ export default function Users() {
         setEditMaxStreams(user.max_concurrent_streams || 1);
     };
 
+    const addMonths = (months: number) => {
+        const date = editExpiry ? new Date(editExpiry) : new Date();
+        date.setMonth(date.getMonth() + months);
+        setEditExpiry(date.toISOString().split('T')[0]);
+    };
+
     const handleUpdateUser = async () => {
         if (!editingUser) return;
         setUpdating(true);
@@ -197,11 +203,7 @@ export default function Users() {
         }
     };
 
-    const addMonths = (months: number) => {
-        const date = editExpiry ? new Date(editExpiry) : new Date();
-        date.setMonth(date.getMonth() + months);
-        setEditExpiry(date.toISOString().split('T')[0]);
-    };
+
 
     // Export to CSV
     const exportCSV = () => {
