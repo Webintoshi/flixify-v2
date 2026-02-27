@@ -77,8 +77,8 @@ const proxyHandler = async (req, res) => {
 };
 
 // ========== ROUTES ==========
-// Proxy route - root level'da (nginx/Vercel'den bağımsız)
-app.get('/p', proxyHandler);
+// Proxy route - /api altında
+app.get('/api/proxy', proxyHandler);
 
 // Health check  
 app.get('/api/health', (req, res) => res.json({ ok: true, timestamp: new Date().toISOString() }));
