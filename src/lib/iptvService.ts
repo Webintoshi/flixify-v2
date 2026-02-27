@@ -177,7 +177,6 @@ export const IPTVService = {
     // GEÇİCİ: Proxy üzerinden geçir (HTTPS sorunu için)
     return `${PROXY_BASE}/proxy?url=${encodeURIComponent(originalUrl)}`;
   },
-  },
 
   // Get series episode stream URL (PROXY üzerinden)
   getSeriesStreamUrl: (stream_id: number, container_extension = 'mp4'): string => {
