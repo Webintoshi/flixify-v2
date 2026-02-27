@@ -10,7 +10,14 @@ const LiveTVPage = lazy(() => import('../components/LiveTVPage').then(m => ({ de
 const MoviesPage = lazy(() => import('../components/MoviesPage').then(m => ({ default: m.MoviesPage })));
 const Login = lazy(() => import('../pages/Login'));
 const Register = lazy(() => import('../pages/Register'));
-const Profile = lazy(() => import('../pages/Profile'));
+
+// Profile pages
+const ProfileLayout = lazy(() => import('../components/profile/ProfileLayout').then(m => ({ default: m.ProfileLayout })));
+const AccountPage = lazy(() => import('../components/profile/AccountPage').then(m => ({ default: m.AccountPage })));
+const PlansPage = lazy(() => import('../components/profile/PlansPage').then(m => ({ default: m.PlansPage })));
+const DevicesPage = lazy(() => import('../components/profile/DevicesPage').then(m => ({ default: m.DevicesPage })));
+const BillingPage = lazy(() => import('../components/profile/BillingPage').then(m => ({ default: m.BillingPage })));
+const SettingsPage = lazy(() => import('../components/profile/SettingsPage').then(m => ({ default: m.SettingsPage })));
 
 // Preload function for route prefetching
 const preloadPage = (page: string) => {
@@ -20,7 +27,7 @@ const preloadPage = (page: string) => {
         case 'filmler':
             return import('../components/MoviesPage');
         case 'profil':
-            return import('../pages/Profile');
+            return import('../components/profile/ProfileLayout');
         default:
             return Promise.resolve();
     }
@@ -125,9 +132,17 @@ export function AppRoutes() {
                     <Route path="/filmler" element={
                         <TransitionRoute element={<MoviesPage />} delay={100} />
                     } />
+                    
+                    {/* Profile Routes - Nested */}
                     <Route path="/profil" element={
-                        <TransitionRoute element={<Profile />} delay={50} />
-                    } />
+                        <TransitionRoute element={<ProfileLayout />} delay={50} />
+                    }>
+                        <Route index element={<AccountPage />} />
+                        <Route path="paketler" element={<PlansPage />} />
+                        <Route path="cihazlar" element={<DevicesPage />} />
+                        <Route path="odemeler" element={<BillingPage />} />
+                        <Route path="ayarlar" element={<SettingsPage />} />
+                    </Route>
                 </Route>
 
                 <Route path="*" element={<Navigate to="/" replace />} />
