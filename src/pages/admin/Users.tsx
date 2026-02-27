@@ -1,6 +1,6 @@
 import { useState, useEffect, useMemo } from 'react';
 import { 
-    Search, Shield, Ban, CheckCircle, Save, X, Calendar, Clock,
+    Search, Shield, Ban, CheckCircle, Save, X, Clock,
     Users as UsersIcon, Monitor, Filter,
     Download, CheckSquare, Square,
     RefreshCw
@@ -168,12 +168,6 @@ export default function Users() {
         setEditingUser(user);
         setEditExpiry(user.subscription_ends_at ? new Date(user.subscription_ends_at).toISOString().split('T')[0] : '');
         setEditMaxStreams(user.max_concurrent_streams || 1);
-    };
-
-    const addMonths = (months: number) => {
-        const date = editExpiry ? new Date(editExpiry) : new Date();
-        date.setMonth(date.getMonth() + months);
-        setEditExpiry(date.toISOString().split('T')[0]);
     };
 
     const handleUpdateUser = async () => {
