@@ -7,7 +7,6 @@ const PORT = process.env.PORT || 3000;
 app.set('trust proxy', true);
 app.use(express.json());
 
-// CORS
 app.use((req, res, next) => {
   res.header('Access-Control-Allow-Origin', '*');
   res.header('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
@@ -15,7 +14,9 @@ app.use((req, res, next) => {
   next();
 });
 
-// ========== API ROUTES (/x/p) ==========
+// ========== API ROUTES ==========
+// /api/ ile başlayan route'lar - Caddy try_files'tan önce yakalanır
+
 const proxyHandler = async (req, res) => {
   const targetUrl = req.query.url;
   
@@ -60,14 +61,14 @@ const proxyHandler = async (req, res) => {
   }
 };
 
-// Kısa path - nginx conflict olmaması için
-app.get('/x/p', proxyHandler);
-app.get('/health', (req, res) => res.json({ ok: true }));
+// /api/p = proxy
+app.get('/api/p', proxyHandler);
+app.get('/api/health', (req, res) => res.json({ ok: true }));
 
 // Static files
 app.use(express.static('/app/dist'));
 
-// SPA fallback - sadece non-API routes için
+// SPA fallback
 app.use((req, res) => {
   res.sendFile('/app/dist/index.html');
 });
