@@ -1,14 +1,18 @@
 /**
- * FLIXIFY V2 - Combined Server
+ * FLIXIFY V2 - Combined Server (ES Module)
  * 
  * Tek sunucuda:
  * - Static React build (dist/)
  * - /proxy endpoint (IPTV için)
  */
 
-const express = require('express');
-const { createProxyMiddleware } = require('http-proxy-middleware');
-const path = require('path');
+import express from 'express';
+import { createProxyMiddleware } from 'http-proxy-middleware';
+import path from 'path';
+import { fileURLToPath } from 'url';
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -44,7 +48,6 @@ app.get('/proxy', async (req, res) => {
                 'Accept': '*/*',
                 'Accept-Language': 'tr-TR,tr;q=0.9',
             },
-            timeout: 30000,
         });
         
         if (!response.ok) {
