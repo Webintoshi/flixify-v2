@@ -23,7 +23,16 @@ const proxyHandler = async (req, res) => {
     return res.status(400).json({ error: 'Missing url parameter' });
   }
   
-  console.log(`[PROXY] Fetching: ${targetUrl}`);
+  // DNS çözümlemesi için
+    try {
+      const dns = await import('dns');
+      const { address } = await dns.promises.lookup('sifiriptvdns.com');
+      console.log(`[PROXY] DNS resolved: sifiriptvdns.com -> ${address}`);
+    } catch (e) {
+      console.log(`[PROXY] DNS lookup failed: ${e.message}`);
+    }
+    
+    console.log(`[PROXY] Fetching: ${targetUrl}`);
   
   try {
     const decodedUrl = decodeURIComponent(targetUrl);
@@ -38,7 +47,8 @@ const proxyHandler = async (req, res) => {
         'Accept': '*/*',
         'Referer': 'http://sifiriptvdns.com/',
       },
-      signal: controller.signal
+      signal: controller.signal,
+      redirect: 'follow'
     });
     
     clearTimeout(timeout);
