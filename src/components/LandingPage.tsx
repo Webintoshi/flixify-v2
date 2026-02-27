@@ -239,36 +239,43 @@ export function LandingPage() {
                 </div>
             </section>
 
-            {/* Info Blocks */}
-            <section className="py-20 bg-background">
-                <div className="max-w-6xl mx-auto px-6 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-12 text-center">
-                    <div className="flex flex-col items-center">
-                        <div className="w-16 h-16 rounded-full bg-surface border border-border flex items-center justify-center mb-6">
-                            <ShieldCheck size={32} className="text-primary" />
-                        </div>
-                        <h3 className="text-xl font-bold mb-3 text-white">Güvenli Ödeme</h3>
-                        <p className="text-gray-400 text-sm">Karmaşık faturalandırma süreçleri yok, tek tıkla anında abonelik.</p>
-                    </div>
-                    <div className="flex flex-col items-center">
-                        <div className="w-16 h-16 rounded-full bg-surface border border-border flex items-center justify-center mb-6">
-                            <Zap size={32} className="text-primary" />
-                        </div>
-                        <h3 className="text-xl font-bold mb-3 text-white">Anında Aktivasyon</h3>
-                        <p className="text-gray-400 text-sm">Abonelik ödemesinin ardından anında otomatik aktivasyon imkanı.</p>
-                    </div>
-                    <div className="flex flex-col items-center">
-                        <div className="w-16 h-16 rounded-full bg-surface border border-border flex items-center justify-center mb-6">
-                            <Tv size={32} className="text-primary" />
-                        </div>
-                        <h3 className="text-xl font-bold mb-3 text-white">Kesintisiz Yayın</h3>
-                        <p className="text-gray-400 text-sm">SD, HD, UHD ve 4K kalitesinde donmayan en kurumsal yayın altyapısı.</p>
-                    </div>
-                    <div className="flex flex-col items-center">
-                        <div className="w-16 h-16 rounded-full bg-surface border border-border flex items-center justify-center mb-6">
-                            <CheckCircle size={32} className="text-primary" />
-                        </div>
-                        <h3 className="text-xl font-bold mb-3 text-white">7/24 Destek</h3>
-                        <p className="text-gray-400 text-sm">Aboneliğiniz boyunca Türkçe ve İngilizce 7/24 kesintisiz müşteri hizmetleri.</p>
+            {/* Features Grid - Premium Redesign */}
+            <section className="py-24 relative overflow-hidden bg-background">
+                {/* Background Elements */}
+                <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[500px] h-[500px] bg-primary/5 blur-[100px] rounded-full pointer-events-none" />
+                
+                <div className="max-w-7xl mx-auto px-6 md:px-12 relative z-10">
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 lg:gap-8">
+                        {[
+                            {
+                                icon: <ShieldCheck size={32} />,
+                                title: "Güvenli Ödeme",
+                                desc: "256-bit SSL korumalı altyapı ile verileriniz güvende. Tek tıkla güvenli işlem."
+                            },
+                            {
+                                icon: <Zap size={32} />,
+                                title: "Anında Aktivasyon",
+                                desc: "Beklemek yok. Ödemenizin hemen ardından yayınınız otomatik olarak başlar."
+                            },
+                            {
+                                icon: <Tv size={32} />,
+                                title: "Kesintisiz Yayın",
+                                desc: "Güçlü sunucu altyapımız ile donmadan, takılmadan 4K UHD keyfi."
+                            },
+                            {
+                                icon: <CheckCircle size={32} />,
+                                title: "7/24 Destek",
+                                desc: "Teknik ekibimiz her an yanınızda. Sorunlarınıza anında çözüm garantisi."
+                            }
+                        ].map((item, idx) => (
+                            <div key={idx} className="group p-8 rounded-2xl bg-surface/30 border border-white/5 hover:border-primary/30 hover:bg-surface/50 backdrop-blur-sm transition-all duration-300 hover:-translate-y-1 hover:shadow-2xl hover:shadow-primary/5 text-center flex flex-col items-center">
+                                <div className="w-16 h-16 rounded-2xl bg-black/40 border border-white/10 flex items-center justify-center mb-6 text-gray-400 group-hover:text-primary group-hover:border-primary/30 group-hover:scale-110 transition-all duration-300 shadow-inner">
+                                    {item.icon}
+                                </div>
+                                <h3 className="text-lg font-bold mb-3 text-white group-hover:text-primary transition-colors duration-300">{item.title}</h3>
+                                <p className="text-gray-400 text-sm leading-relaxed">{item.desc}</p>
+                            </div>
+                        ))}
                     </div>
                 </div>
             </section>
