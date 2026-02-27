@@ -15,7 +15,6 @@ app.use((req, res, next) => {
 });
 
 // ========== API ROUTES ==========
-// /api/ ile başlayan route'lar - Caddy try_files'tan önce yakalanır
 
 const proxyHandler = async (req, res) => {
   const targetUrl = req.query.url;
@@ -47,7 +46,8 @@ const proxyHandler = async (req, res) => {
     if (contentType) res.setHeader('Content-Type', contentType);
     
     const body = await response.text();
-    console.log(`[PROXY] ${response.status}, Length: ${body.length}`);
+    console.log(`[PROXY] Status: ${response.status}, Length: ${body.length}`);
+    console.log(`[PROXY] Body preview: ${body.substring(0, 200)}`);
     
     if (body.includes('#EXTM3U')) {
       console.log('[PROXY] ✅ Valid M3U');
@@ -64,6 +64,17 @@ const proxyHandler = async (req, res) => {
 // /api/p = proxy
 app.get('/api/p', proxyHandler);
 app.get('/api/health', (req, res) => res.json({ ok: true }));
+
+// Outbound IP check
+app.get('/api/ip', async (req, res) => {
+  try {
+    const response = await fetch('https://api.ipify.org?format=json');
+    const data = await response.json();
+    res.json({ outbound_ip: data.ip });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
 
 // Static files
 app.use(express.static('/app/dist'));
