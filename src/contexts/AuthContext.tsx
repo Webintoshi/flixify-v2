@@ -152,6 +152,52 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         };
     }, [fetchProfile]);
 
+    // REALTIME: Admin değişikliklerini anında dinle
+    useEffect(() => {
+        if (!authState.user?.id) return;
+
+        console.log('[AuthContext] Realtime subscription başlatılıyor...');
+
+        const subscription = supabase
+            .channel('profile_changes')
+            .on(
+                'postgres_changes',
+                {
+                    event: '*', // INSERT, UPDATE, DELETE
+                    schema: 'public',
+                    table: 'profiles',
+                    filter: `id=eq.${authState.user.id}`,
+                },
+                (payload) => {
+                    console.log('[AuthContext] Profil değişikliği algılandı:', payload);
+                    
+                    if (payload.new) {
+                        const newProfile = payload.new as Profile;
+                        setProfile(newProfile);
+                        profileCache.set(authState.user!.id, { 
+                            profile: newProfile, 
+                            timestamp: Date.now() 
+                        });
+                        
+                        // IPTV credentials güncelle
+                        if (newProfile.iptv_username && newProfile.iptv_password) {
+                            IPTVService.setCredentials(
+                                newProfile.iptv_username, 
+                                newProfile.iptv_password
+                            );
+                            console.log('[AuthContext] IPTV credentials güncellendi');
+                        }
+                    }
+                }
+            )
+            .subscribe();
+
+        return () => {
+            console.log('[AuthContext] Realtime subscription kapatılıyor...');
+            subscription.unsubscribe();
+        };
+    }, [authState.user?.id]);
+
     // Memoized state objects to prevent re-renders
     const authStateValue = useMemo(() => authState, [authState.session, authState.user, authState.loading]);
     

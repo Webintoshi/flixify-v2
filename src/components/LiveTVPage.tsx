@@ -30,34 +30,47 @@ export function LiveTVPage() {
   const [viewMode, setViewMode] = useState<'grid' | 'list'>('list');
   const [searchQuery, setSearchQuery] = useState('');
 
-  // Load categories on mount
-  useEffect(() => {
-    async function loadCategories() {
-      if (!IPTVService.hasCredentials()) {
-        setLoading(false);
-        return;
-      }
-
-      try {
-        setLoading(true);
-        const cats = await IPTVService.getLiveCategories();
-        setCategories(cats);
-        
-        // Load all streams initially
-        const allStreams = await IPTVService.getLiveStreams();
-        setStreams(allStreams);
-        
-        console.log('[LiveTVPage] Loaded:', cats.length, 'categories,', allStreams.length, 'streams');
-      } catch (err: any) {
-        console.error('[LiveTVPage] Error:', err);
-        setError(err.message);
-      } finally {
-        setLoading(false);
-      }
+  // Load categories
+  const loadCategories = useCallback(async () => {
+    if (!IPTVService.hasCredentials()) {
+      setLoading(false);
+      return;
     }
 
-    loadCategories();
+    try {
+      setLoading(true);
+      const cats = await IPTVService.getLiveCategories();
+      setCategories(cats);
+      
+      // Load all streams initially
+      const allStreams = await IPTVService.getLiveStreams();
+      setStreams(allStreams);
+      
+      console.log('[LiveTVPage] Loaded:', cats.length, 'categories,', allStreams.length, 'streams');
+    } catch (err: any) {
+      console.error('[LiveTVPage] Error:', err);
+      setError(err.message);
+    } finally {
+      setLoading(false);
+    }
   }, []);
+
+  useEffect(() => {
+    loadCategories();
+  }, [loadCategories]);
+
+  // Sayfa görünür olduğunda yenile (admin değişikliği sonrası)
+  useEffect(() => {
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === 'visible') {
+        console.log('[LiveTVPage] Sayfa aktif oldu, yenileniyor...');
+        loadCategories();
+      }
+    };
+
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    return () => document.removeEventListener('visibilitychange', handleVisibilityChange);
+  }, [loadCategories]);
 
   // Filter streams when category changes
   useEffect(() => {

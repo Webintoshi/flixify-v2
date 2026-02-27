@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState, useDeferredValue } from 'react';
+import { useEffect, useMemo, useState, useDeferredValue, useCallback } from 'react';
 import { Header } from './Header';
 import { VideoPlayer } from './VideoPlayer';
 import { Play, Info, ChevronDown, Filter, Film, Search } from 'lucide-react';
@@ -51,36 +51,49 @@ export function MoviesPage() {
   const [visibleCount, setVisibleCount] = useState(50);
 
   // Load VOD categories and movies
-  useEffect(() => {
-    async function loadVodContent() {
-      if (!IPTVService.hasCredentials()) {
-        setLoading(false);
-        return;
-      }
-
-      setLoading(true);
-      setError(null);
-
-      try {
-        // Load categories
-        const cats = await IPTVService.getVodCategories();
-        setCategories(cats);
-        
-        // Load all VOD movies
-        const vodMovies = await IPTVService.getVOD();
-        setMovies(vodMovies);
-        
-        console.log('[MoviesPage] Loaded:', cats.length, 'categories,', vodMovies.length, 'movies');
-      } catch (err: any) {
-        console.error('[MoviesPage] Error loading VOD:', err);
-        setError(err.message || 'Filmler yüklenemedi');
-      } finally {
-        setLoading(false);
-      }
+  const loadVodContent = useCallback(async () => {
+    if (!IPTVService.hasCredentials()) {
+      setLoading(false);
+      return;
     }
 
-    loadVodContent();
+    setLoading(true);
+    setError(null);
+
+    try {
+      // Load categories
+      const cats = await IPTVService.getVodCategories();
+      setCategories(cats);
+      
+      // Load all VOD movies
+      const vodMovies = await IPTVService.getVOD();
+      setMovies(vodMovies);
+      
+      console.log('[MoviesPage] Loaded:', cats.length, 'categories,', vodMovies.length, 'movies');
+    } catch (err: any) {
+      console.error('[MoviesPage] Error loading VOD:', err);
+      setError(err.message || 'Filmler yüklenemedi');
+    } finally {
+      setLoading(false);
+    }
   }, []);
+
+  useEffect(() => {
+    loadVodContent();
+  }, [loadVodContent]);
+
+  // Sayfa görünür olduğunda yenile (admin değişikliği sonrası)
+  useEffect(() => {
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === 'visible') {
+        console.log('[MoviesPage] Sayfa aktif oldu, yenileniyor...');
+        loadVodContent();
+      }
+    };
+
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    return () => document.removeEventListener('visibilitychange', handleVisibilityChange);
+  }, [loadVodContent]);
 
   // Filter movies when category selected
   useEffect(() => {
