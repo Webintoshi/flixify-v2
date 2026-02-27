@@ -17,12 +17,15 @@
 const PROXY_BASE = 'https://api.flixify.pro';
 // const PROXY_BASE = 'http://<VULTR_IP>:3001'; // Domain aktif olana kadar
 
-const IPTV_BASE = 'https://sifiriptvdns.com';
+// NOT: sifiriptvdns.com HTTPS desteklemiyor
+// Tüm streamler proxy üzerinden HTTPS'e upgrade ediliyor
+const IPTV_BASE = 'http://sifiriptvdns.com:80';
 
-// HTTP URL'leri HTTPS'e çevir (Mixed Content hatalarını önlemek için)
-export const toHttps = (url: string | null | undefined): string | undefined => {
-  if (!url) return undefined;
-  return url.replace(/^http:\/\//i, 'https://');
+// Proxy URL oluşturucu (Mixed Content önlemek için)
+export const toProxyUrl = (httpUrl: string | null | undefined): string | undefined => {
+  if (!httpUrl) return undefined;
+  if (httpUrl.startsWith('https://')) return httpUrl;
+  return `${PROXY_BASE}/proxy?url=${encodeURIComponent(httpUrl)}`;
 };
 
 // Types
