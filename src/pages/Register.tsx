@@ -111,7 +111,7 @@ const Register: React.FC = () => {
 
         try {
             const fakeEmail = `${accountNumber}@anon.flixify.com`;
-            const { error: signUpError } = await supabase.auth.signUp({
+            const { data: signUpData, error: signUpError } = await supabase.auth.signUp({
                 email: fakeEmail,
                 password: accountNumber,
                 options: {
@@ -130,9 +130,31 @@ const Register: React.FC = () => {
                     setError(signUpError.message);
                 }
                 setLoading(false);
-            } else {
-                navigate('/');
+                return;
             }
+
+            // Kullanıcı başarıyla oluşturuldu, şimdi profiles tablosuna ekle
+            if (signUpData.user) {
+                const fakeEmail = `${accountNumber}@anon.flixify.com`;
+                const { error: profileError } = await supabase
+                    .from('profiles')
+                    .insert({
+                        id: signUpData.user.id,
+                        email: fakeEmail,
+                        full_name: 'Anonim Kullanıcı',
+                        account_number: accountNumber,
+                        is_admin: false,
+                        max_concurrent_streams: 1,
+                        subscription_status: 'trial'
+                    });
+
+                if (profileError) {
+                    console.error('Profil oluşturma hatası:', profileError);
+                    // Kullanıcı oluştu ama profil hatası - yine de devam et
+                }
+            }
+
+            navigate('/');
         } catch (err) {
             setError('Hesap oluşturulurken beklenmeyen bir hata oluştu.');
             setLoading(false);
