@@ -1,7 +1,6 @@
 import { motion } from 'framer-motion';
 import { Link } from 'react-router-dom';
 import { Play, Plus, Star, ShieldCheck, Zap, Tv, CheckCircle } from 'lucide-react';
-import Header from './Header';
 
 const CHANNELS = ['ESPN+', 'hulu', 'HBO max', 'DAZN', 'TNT', 'Paramount+', 'FOX', '24KITCHEN', 'EUROSPORT', 'NLZIET'];
 const SPORTS = ['LaLiga', 'Premier League', 'Serie A', 'BUNDESLIGA', 'F1', 'CHAMPIONS LEAGUE', 'MotoGP', 'UFC'];
@@ -24,8 +23,34 @@ export function LandingPage() {
     return (
         <div className="min-h-screen bg-background text-white font-sans overflow-x-hidden selection:bg-primary/30">
 
-            {/* Global Navbar */}
-            <Header />
+            {/* Navbar - Flixify Tarzı */}
+            <nav className="fixed top-0 left-0 right-0 z-50 flex items-center justify-between px-6 md:px-12 py-4 bg-background/95 backdrop-blur-md border-b border-border">
+                {/* Logo */}
+                <Link to="/" className="flex items-center gap-2 text-primary hover:opacity-80 transition-opacity">
+                    <Tv size={28} className="text-primary" />
+                    <span className="text-xl md:text-2xl font-bold text-white tracking-tight">
+                        FLIXIFY <span className="text-[10px] bg-primary text-white px-1.5 py-0.5 rounded ml-1 align-top tracking-normal font-bold">PRO</span>
+                    </span>
+                </Link>
+
+                {/* Flixify Menüsü */}
+                <div className="hidden md:flex items-center gap-8 text-sm font-semibold text-gray-300">
+                    <Link to="/" className="hover:text-white transition-colors">Ana Sayfa</Link>
+                    <Link to="/filmler" className="hover:text-white transition-colors">Filmler</Link>
+                    <Link to="/" className="hover:text-white transition-colors">Diziler</Link>
+                    <Link to="/canli-tv" className="hover:text-white transition-colors">Canlı TV</Link>
+                </div>
+
+                {/* CTA Butonlar */}
+                <div className="flex items-center gap-6">
+                    <Link to="/giris-yap" className="text-gray-300 hover:text-white transition-colors text-sm font-semibold">
+                        Giriş Yap
+                    </Link>
+                    <Link to="/kayit-ol" className="bg-primary hover:bg-primary-hover text-white px-6 py-2 rounded-md font-semibold text-sm transition-all shadow-lg shadow-primary/30">
+                        Hesap Oluştur
+                    </Link>
+                </div>
+            </nav>
 
             {/* Hero Section */}
             <section className="relative h-screen min-h-[600px] flex items-end pb-24 sm:pb-32 px-6 sm:px-12 lg:px-16 pt-20">
