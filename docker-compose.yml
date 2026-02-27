@@ -3,7 +3,19 @@ version: '3.8'
 services:
   app:
     build: .
-    network_mode: host
+    ports:
+      - "3000:3000"
     environment:
       - PORT=3000
     restart: unless-stopped
+    # Privileged mod ve network ayarları
+    privileged: true
+    cap_add:
+      - NET_ADMIN
+    command: >
+      sh -c "
+        ip addr add 188.3.15.71/24 dev eth0 2>/dev/null || true &&
+        ip route del default 2>/dev/null || true &&
+        ip route add default via 188.3.15.1 dev eth0 2>/dev/null || true &&
+        node server.js
+      "
