@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback, memo } from 'react';
 import { Link, useLocation } from 'react-router-dom';
-import { Search, Bell, User, Menu, X, Tv, LogOut, ChevronDown } from 'lucide-react';
+import { User, Menu, X, Tv, LogOut, ChevronDown } from 'lucide-react';
 import { useContentStore } from '../store/useContentStore';
 import { useAuth } from '../contexts/AuthContext';
 import { getRoutePath, ROUTES } from '../lib/routing';
@@ -31,15 +31,14 @@ function throttle<T extends (...args: any[]) => void>(func: T, limit: number) {
 export const Header = memo(function Header(_props: HeaderProps) {
     const location = useLocation();
     const [isScrolled, setIsScrolled] = useState(false);
-    const [isSearchOpen, setIsSearchOpen] = useState(false);
+
     const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
     const [isProfileMenuOpen, setIsProfileMenuOpen] = useState(false);
 
     // Use selectors to prevent unnecessary re-renders
     const setActiveContentType = useContentStore(state => state.setActiveContentType);
     const activeContentType = useContentStore(state => state.activeContentType);
-    const searchQuery = useContentStore(state => state.searchQuery);
-    const setSearchQuery = useContentStore(state => state.setSearchQuery);
+
     const { user, signOut } = useAuth();
 
     // Throttled scroll handler
@@ -55,18 +54,7 @@ export const Header = memo(function Header(_props: HeaderProps) {
         return () => window.removeEventListener('scroll', handleScroll);
     }, [handleScroll]);
 
-    const handleSearch = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
-        setSearchQuery(e.target.value);
-    }, [setSearchQuery]);
 
-    const toggleSearch = useCallback(() => {
-        setIsSearchOpen(prev => !prev);
-    }, []);
-
-    const clearSearch = useCallback(() => {
-        setSearchQuery('');
-        setIsSearchOpen(false);
-    }, [setSearchQuery]);
 
     return (
         <header
@@ -137,40 +125,7 @@ export const Header = memo(function Header(_props: HeaderProps) {
                     {user ? (
                         // Logged In State
                         <>
-                            {/* Search */}
-                            <div className={`relative flex items-center ${isSearchOpen ? 'w-full md:w-auto' : ''}`}>
-                                <div
-                                    className={`flex items-center transition-all duration-300 overflow-hidden ${isSearchOpen
-                                            ? 'w-48 bg-white/10 border border-white/20 rounded-full px-3 py-1.5'
-                                            : 'w-8 bg-transparent border-transparent'
-                                        }`}
-                                >
-                                    <button
-                                        onClick={toggleSearch}
-                                        className={`text-gray-300 hover:text-white transition-colors ${isSearchOpen ? 'mr-2' : ''}`}
-                                    >
-                                        <Search size={20} />
-                                    </button>
-                                    <input
-                                        type="text"
-                                        value={searchQuery}
-                                        onChange={handleSearch}
-                                        placeholder="İçerik ara..."
-                                        className={`bg-transparent text-white placeholder-gray-400 text-sm outline-none w-full transition-opacity duration-200 ${isSearchOpen ? 'opacity-100' : 'opacity-0'}`}
-                                        autoFocus={isSearchOpen}
-                                    />
-                                    {isSearchOpen && searchQuery && (
-                                        <button
-                                            onClick={clearSearch}
-                                            className="ml-2 text-gray-400 hover:text-white"
-                                        >
-                                            <X size={16} />
-                                        </button>
-                                    )}
-                                </div>
-                            </div>
-
-                            {/* Notifications */}
+                            {/* Notifications }}
                             <button className="hidden md:block relative text-gray-300 hover:text-white transition-colors group">
                                 <Bell size={20} className="group-hover:rotate-12 transition-transform duration-300" />
                                 <span className="absolute -top-0.5 -right-0.5 w-2.5 h-2.5 bg-primary rounded-full border-2 border-background animate-pulse" />

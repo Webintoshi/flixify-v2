@@ -187,7 +187,7 @@ const ChannelCard = memo(function ChannelCard({ channel, index, isTop10, onSelec
       style={{ scrollSnapAlign: 'start' }}
     >
       {/* Logo/Thumbnail */}
-      <div className="absolute inset-0 flex items-center justify-center p-4">
+      <div className={`absolute inset-0 flex items-center justify-center ${channel.type === 'live' ? 'bg-white p-3' : 'p-4'}`}>
         {channel.poster || channel.logo ? (
           <img
             src={channel.poster || channel.logo}
@@ -201,7 +201,7 @@ const ChannelCard = memo(function ChannelCard({ channel, index, isTop10, onSelec
         ) : (
           <span className="text-white text-xs text-center line-clamp-2">{channel.title || channel.name}</span>
         )}
-        {!imageLoaded && (channel.poster || channel.logo) && <div className="absolute inset-0 bg-surface animate-pulse" />}
+        {!imageLoaded && (channel.poster || channel.logo) && <div className={`absolute inset-0 animate-pulse ${channel.type === 'live' ? 'bg-white' : 'bg-surface'}`} />}
       </div>
 
       {/* Hover Overlay - Simplified animation */}

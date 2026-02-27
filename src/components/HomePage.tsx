@@ -1,117 +1,212 @@
-import { useEffect, useState, useMemo, useRef, useCallback, memo } from 'react';
+import { useState, useCallback, memo } from 'react';
 import { Header } from './Header';
 import { NetflixRow } from './NetflixRow';
 import { VideoPlayer } from './VideoPlayer';
-import { useContentStore } from '../store/useContentStore';
+
 import { useAuth } from '../contexts/AuthContext';
-import { Tv, Search, Play, X, ChevronRight } from 'lucide-react';
+import { Tv, Play, Info, Plus, Check, Volume2, VolumeX } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 
-// Memoized to prevent re-renders when parent changes
-export const HomePage = memo(function HomePage() {
-  // Select only needed state from store to prevent unnecessary re-renders
-  const selectedItem = useContentStore(state => state.selectedItem);
-  const setSelectedItem = useContentStore(state => state.setSelectedItem);
-  const searchQuery = useContentStore(state => state.searchQuery);
-  const setSearchQuery = useContentStore(state => state.setSearchQuery);
-  const searchResults = useContentStore(state => state.searchResults);
-  const loadFromM3uUrl = useContentStore(state => state.loadFromM3uUrl);
-  const storeLoading = useContentStore(state => state.isLoading);
-  const liveChannels = useContentStore(state => state.liveChannels);
-  const movies = useContentStore(state => state.movies);
-  const series = useContentStore(state => state.series);
-  
-  const { profile } = useAuth();
-  const [loading, setLoading] = useState(true);
-  const [m3uFetchInitiated, setM3uFetchInitiated] = useState(false);
-  const [isSearchFocused, setIsSearchFocused] = useState(false);
-  const searchContainerRef = useRef<HTMLDivElement>(null);
+// ==========================================
+// MOCK DATA - INSTANT LOAD
+// ==========================================
 
-  // Close search dropdown when clicking outside
-  useEffect(() => {
-    function handleClickOutside(event: MouseEvent) {
-      if (searchContainerRef.current && !searchContainerRef.current.contains(event.target as Node)) {
-        setIsSearchFocused(false);
-      }
-    }
-    document.addEventListener("mousedown", handleClickOutside);
-    return () => document.removeEventListener("mousedown", handleClickOutside);
+const FEATURED_HERO = {
+  id: 'hero-1',
+  title: 'The Witcher',
+  description: 'Kaderleri birleşen üç kişinin, dünyanın düzenini değiştiren bir savaşın ortasında hayatta kalma mücadelesi. Geralt, Ciri ve Yennefer\'in destansı hikayesi.',
+  backdrop: 'https://image.tmdb.org/t/p/original/56v2KjBlU4XaOv9rVYEQypROD7P.jpg',
+  poster: 'https://image.tmdb.org/t/p/w500/7vjaCdMw15FEbXyLQTVa04URsPm.jpg',
+  year: '2023',
+  duration: '2 Sezon',
+  rating: '8.5',
+  match: 98,
+  genres: ['Aksiyon', 'Fantastik', 'Macera'],
+  type: 'series'
+};
+
+const TRENDING_MOVIES = [
+  { id: 'm1', title: 'Oppenheimer', poster: 'https://image.tmdb.org/t/p/w500/8Gxv8gSFCU0XGDykEGv7zR1n2ua.jpg', year: '2023', rating: '8.9', match: 97, genres: ['Biyografi', 'Dram'], type: 'movie' },
+  { id: 'm2', title: 'Dune: Part Two', poster: 'https://image.tmdb.org/t/p/w500/1pdfLvkbY9ohJlCjQH2CZjjYVvJ.jpg', year: '2024', rating: '8.7', match: 96, genres: ['Bilim Kurgu', 'Macera'], type: 'movie' },
+  { id: 'm3', title: 'The Batman', poster: 'https://image.tmdb.org/t/p/w500/74xTEgt7R36FpoooUf8vcGAemGk.jpg', year: '2022', rating: '8.4', match: 95, genres: ['Aksiyon', 'Suç'], type: 'movie' },
+  { id: 'm4', title: 'Spider-Man: No Way Home', poster: 'https://image.tmdb.org/t/p/w500/1g0dhYtq4irTY1GPXvft6k4YLjm.jpg', year: '2021', rating: '8.2', match: 94, genres: ['Aksiyon', 'Macera'], type: 'movie' },
+  { id: 'm5', title: 'Top Gun: Maverick', poster: 'https://image.tmdb.org/t/p/w500/62HCnUTziyWcpDaBO2i1O5z8pP9.jpg', year: '2022', rating: '8.3', match: 95, genres: ['Aksiyon', 'Dram'], type: 'movie' },
+  { id: 'm6', title: 'Inception', poster: 'https://image.tmdb.org/t/p/w500/oYuLEt3zVCKq57qu2F8dT7NIa6f.jpg', year: '2010', rating: '8.8', match: 98, genres: ['Bilim Kurgu', 'Gerilim'], type: 'movie' },
+  { id: 'm7', title: 'Interstellar', poster: 'https://image.tmdb.org/t/p/w500/gEU2QniL6E8ahDaX062sVJtXNYL.jpg', year: '2014', rating: '8.7', match: 97, genres: ['Bilim Kurgu', 'Dram'], type: 'movie' },
+  { id: 'm8', title: 'The Dark Knight', poster: 'https://image.tmdb.org/t/p/w500/qJ2tW6WMUDux911r6m7haRef0WH.jpg', year: '2008', rating: '9.0', match: 99, genres: ['Aksiyon', 'Suç'], type: 'movie' },
+  { id: 'm9', title: 'Avengers: Endgame', poster: 'https://image.tmdb.org/t/p/w500/or06FN3Dka5tukK1e9sl16pB3iy.jpg', year: '2019', rating: '8.4', match: 95, genres: ['Aksiyon', 'Macera'], type: 'movie' },
+  { id: 'm10', title: 'Joker', poster: 'https://image.tmdb.org/t/p/w500/udDclJoHjfjb8Ekgsd4FDteOkCU.jpg', year: '2019', rating: '8.4', match: 94, genres: ['Suç', 'Dram'], type: 'movie' },
+];
+
+const POPULAR_SERIES = [
+  { id: 's1', title: 'Stranger Things', poster: 'https://image.tmdb.org/t/p/w500/49WJfeN0moxb9IPfGn8AIqMGskD.jpg', year: '2022', rating: '8.7', match: 96, genres: ['Bilim Kurgu', 'Korku'], type: 'series' },
+  { id: 's2', title: 'The Last of Us', poster: 'https://image.tmdb.org/t/p/w500/uKvVjHNqB5VmJxNgEC2UzgqO6Rz.jpg', year: '2023', rating: '8.8', match: 97, genres: ['Dram', 'Korku'], type: 'series' },
+  { id: 's3', title: 'Breaking Bad', poster: 'https://image.tmdb.org/t/p/w500/ggFHVNu6YYI5L9pCfOacjizRGt.jpg', year: '2013', rating: '9.5', match: 99, genres: ['Suç', 'Dram'], type: 'series' },
+  { id: 's4', title: 'Game of Thrones', poster: 'https://image.tmdb.org/t/p/w500/1XS1oqL89opfnbLl8WnZY1O1uJx.jpg', year: '2019', rating: '8.9', match: 98, genres: ['Fantastik', 'Dram'], type: 'series' },
+  { id: 's5', title: 'The Mandalorian', poster: 'https://image.tmdb.org/t/p/w500/sWgBv7LV2PRoQgkxwlibdGXKz1S.jpg', year: '2023', rating: '8.5', match: 95, genres: ['Bilim Kurgu', 'Aksiyon'], type: 'series' },
+  { id: 's6', title: 'House of the Dragon', poster: 'https://image.tmdb.org/t/p/w500/z2yahl2ueuiDGlD8WCvrDKz4mh.jpg', year: '2024', rating: '8.4', match: 94, genres: ['Fantastik', 'Dram'], type: 'series' },
+  { id: 's7', title: 'Wednesday', poster: 'https://image.tmdb.org/t/p/w500/jeGvNOVMXFXpxXP5474clhEVmUV.jpg', year: '2022', rating: '8.1', match: 93, genres: ['Komedi', 'Gizem'], type: 'series' },
+  { id: 's8', title: 'The Crown', poster: 'https://image.tmdb.org/t/p/w500/8kOWDBKcAQyzTW72mo5Wa3T1Jt.jpg', year: '2023', rating: '8.2', match: 92, genres: ['Biyografi', 'Dram'], type: 'series' },
+  { id: 's9', title: 'Money Heist', poster: 'https://image.tmdb.org/t/p/w500/reEMJA1uzscCbkpeRJeTT2bjqUp.jpg', year: '2021', rating: '8.2', match: 93, genres: ['Suç', 'Aksiyon'], type: 'series' },
+  { id: 's10', title: 'Squid Game', poster: 'https://image.tmdb.org/t/p/w500/dDlEmu3EZ0Pgg93KZSVabUaa8Pd.jpg', year: '2021', rating: '8.0', match: 92, genres: ['Gerilim', 'Dram'], type: 'series' },
+];
+
+const TURKISH_CHANNELS = [
+  { id: 't1', title: 'TRT 1', poster: 'https://upload.wikimedia.org/wikipedia/commons/thumb/8/8e/TRT_1_logo_2021.svg/512px-TRT_1_logo_2021.svg.png', logo: 'https://upload.wikimedia.org/wikipedia/commons/thumb/8/8e/TRT_1_logo_2021.svg/512px-TRT_1_logo_2021.svg.png', year: 'Canlı', rating: '-', match: 95, genres: ['Ulusal'], type: 'live' },
+  { id: 't2', title: 'ATV', poster: 'https://upload.wikimedia.org/wikipedia/commons/thumb/3/30/ATV_logo_2010.svg/512px-ATV_logo_2010.svg.png', logo: 'https://upload.wikimedia.org/wikipedia/commons/thumb/3/30/ATV_logo_2010.svg/512px-ATV_logo_2010.svg.png', year: 'Canlı', rating: '-', match: 94, genres: ['Ulusal'], type: 'live' },
+  { id: 't3', title: 'KANAL D', poster: 'https://upload.wikimedia.org/wikipedia/commons/thumb/9/97/Kanal_D_logo.svg/512px-Kanal_D_logo.svg.png', logo: 'https://upload.wikimedia.org/wikipedia/commons/thumb/9/97/Kanal_D_logo.svg/512px-Kanal_D_logo.svg.png', year: 'Canlı', rating: '-', match: 93, genres: ['Ulusal'], type: 'live' },
+  { id: 't4', title: 'STAR TV', poster: 'https://upload.wikimedia.org/wikipedia/commons/thumb/a/a8/Star_TV_logo.svg/512px-Star_TV_logo.svg.png', logo: 'https://upload.wikimedia.org/wikipedia/commons/thumb/a/a8/Star_TV_logo.svg/512px-Star_TV_logo.svg.png', year: 'Canlı', rating: '-', match: 92, genres: ['Ulusal'], type: 'live' },
+  { id: 't5', title: 'SHOW TV', poster: 'https://upload.wikimedia.org/wikipedia/commons/thumb/c/c8/Show_TV_logo.svg/512px-Show_TV_logo.svg.png', logo: 'https://upload.wikimedia.org/wikipedia/commons/thumb/c/c8/Show_TV_logo.svg/512px-Show_TV_logo.svg.png', year: 'Canlı', rating: '-', match: 91, genres: ['Ulusal'], type: 'live' },
+  { id: 't6', title: 'TV8', poster: 'https://upload.wikimedia.org/wikipedia/commons/thumb/3/3d/TV8_logo.svg/512px-TV8_logo.svg.png', logo: 'https://upload.wikimedia.org/wikipedia/commons/thumb/3/3d/TV8_logo.svg/512px-TV8_logo.svg.png', year: 'Canlı', rating: '-', match: 90, genres: ['Ulusal'], type: 'live' },
+  { id: 't7', title: 'NOW', poster: 'https://upload.wikimedia.org/wikipedia/commons/thumb/4/4c/Now_logo.svg/512px-Now_logo.svg.png', logo: 'https://upload.wikimedia.org/wikipedia/commons/thumb/4/4c/Now_logo.svg/512px-Now_logo.svg.png', year: 'Canlı', rating: '-', match: 89, genres: ['Ulusal'], type: 'live' },
+  { id: 't8', title: 'FOX', poster: 'https://upload.wikimedia.org/wikipedia/commons/thumb/9/95/Fox_Broadcasting_Company_logo_%282019%29.svg/512px-Fox_Broadcasting_Company_logo_%282019%29.svg.png', logo: 'https://upload.wikimedia.org/wikipedia/commons/thumb/9/95/Fox_Broadcasting_Company_logo_%282019%29.svg/512px-Fox_Broadcasting_Company_logo_%282019%29.svg.png', year: 'Canlı', rating: '-', match: 88, genres: ['Ulusal'], type: 'live' },
+  { id: 't9', title: 'Beyaz TV', poster: 'https://upload.wikimedia.org/wikipedia/tr/thumb/5/55/Beyaz_TV_logosu.svg/512px-Beyaz_TV_logosu.svg.png', logo: 'https://upload.wikimedia.org/wikipedia/tr/thumb/5/55/Beyaz_TV_logosu.svg/512px-Beyaz_TV_logosu.svg.png', year: 'Canlı', rating: '-', match: 87, genres: ['Ulusal'], type: 'live' },
+  { id: 't10', title: 'Haber Global', poster: 'https://upload.wikimedia.org/wikipedia/commons/thumb/4/4e/Haber_Global_logo.svg/512px-Haber_Global_logo.svg.png', logo: 'https://upload.wikimedia.org/wikipedia/commons/thumb/4/4e/Haber_Global_logo.svg/512px-Haber_Global_logo.svg.png', year: 'Canlı', rating: '-', match: 86, genres: ['Haber'], type: 'live' },
+];
+
+const BEIN_SPORTS = [
+  { id: 'b1', title: 'beIN SPORTS 1', poster: 'https://upload.wikimedia.org/wikipedia/commons/thumb/3/37/BeIN_Sports_1_logo.svg/512px-BeIN_Sports_1_logo.svg.png', logo: 'https://upload.wikimedia.org/wikipedia/commons/thumb/3/37/BeIN_Sports_1_logo.svg/512px-BeIN_Sports_1_logo.svg.png', year: 'Canlı', rating: '-', match: 99, genres: ['Spor'], type: 'live' },
+  { id: 'b2', title: 'beIN SPORTS 2', poster: 'https://upload.wikimedia.org/wikipedia/commons/thumb/8/8c/BeIN_Sports_2_logo.svg/512px-BeIN_Sports_2_logo.svg.png', logo: 'https://upload.wikimedia.org/wikipedia/commons/thumb/8/8c/BeIN_Sports_2_logo.svg/512px-BeIN_Sports_2_logo.svg.png', year: 'Canlı', rating: '-', match: 98, genres: ['Spor'], type: 'live' },
+  { id: 'b3', title: 'beIN SPORTS 3', poster: 'https://upload.wikimedia.org/wikipedia/commons/thumb/e/e4/BeIN_Sports_3_logo.svg/512px-BeIN_Sports_3_logo.svg.png', logo: 'https://upload.wikimedia.org/wikipedia/commons/thumb/e/e4/BeIN_Sports_3_logo.svg/512px-BeIN_Sports_3_logo.svg.png', year: 'Canlı', rating: '-', match: 97, genres: ['Spor'], type: 'live' },
+  { id: 'b4', title: 'beIN SPORTS 4', poster: 'https://upload.wikimedia.org/wikipedia/commons/thumb/9/9f/BeIN_Sports_4_logo.svg/512px-BeIN_Sports_4_logo.svg.png', logo: 'https://upload.wikimedia.org/wikipedia/commons/thumb/9/9f/BeIN_Sports_4_logo.svg/512px-BeIN_Sports_4_logo.svg.png', year: 'Canlı', rating: '-', match: 96, genres: ['Spor'], type: 'live' },
+  { id: 'b5', title: 'beIN SPORTS MAX 1', poster: 'https://upload.wikimedia.org/wikipedia/commons/thumb/6/6e/BeIN_Sports_MAX_1_logo.svg/512px-BeIN_Sports_MAX_1_logo.svg.png', logo: 'https://upload.wikimedia.org/wikipedia/commons/thumb/6/6e/BeIN_Sports_MAX_1_logo.svg/512px-BeIN_Sports_MAX_1_logo.svg.png', year: 'Canlı', rating: '-', match: 95, genres: ['Spor'], type: 'live' },
+  { id: 'b6', title: 'beIN SPORTS MAX 2', poster: 'https://upload.wikimedia.org/wikipedia/commons/thumb/0/0e/BeIN_Sports_MAX_2_logo.svg/512px-BeIN_Sports_MAX_2_logo.svg.png', logo: 'https://upload.wikimedia.org/wikipedia/commons/thumb/0/0e/BeIN_Sports_MAX_2_logo.svg/512px-BeIN_Sports_MAX_2_logo.svg.png', year: 'Canlı', rating: '-', match: 94, genres: ['Spor'], type: 'live' },
+  { id: 'b7', title: 'beIN SPORTS HABER', poster: 'https://upload.wikimedia.org/wikipedia/commons/thumb/1/1c/BeIN_Sports_Haber_logo.svg/512px-BeIN_Sports_Haber_logo.svg.png', logo: 'https://upload.wikimedia.org/wikipedia/commons/thumb/1/1c/BeIN_Sports_Haber_logo.svg/512px-BeIN_Sports_Haber_logo.svg.png', year: 'Canlı', rating: '-', match: 93, genres: ['Spor'], type: 'live' },
+  { id: 'b8', title: 'Tivibu Spor', poster: 'https://upload.wikimedia.org/wikipedia/commons/thumb/a/a3/Tivibu_Spor_logo.svg/512px-Tivibu_Spor_logo.svg.png', logo: 'https://upload.wikimedia.org/wikipedia/commons/thumb/a/a3/Tivibu_Spor_logo.svg/512px-Tivibu_Spor_logo.svg.png', year: 'Canlı', rating: '-', match: 92, genres: ['Spor'], type: 'live' },
+];
+
+// ==========================================
+// HERO COMPONENT
+// ==========================================
+
+const HeroSection = memo(function HeroSection({ movie, onPlay }: { movie: typeof FEATURED_HERO, onPlay: () => void }) {
+  const [isMuted, setIsMuted] = useState(true);
+  const [isInList, setIsInList] = useState(false);
+  const [imageLoaded, setImageLoaded] = useState(false);
+
+  return (
+    <div className="relative w-full h-[85vh] sm:h-[90vh] md:h-[95vh] lg:h-[100vh] overflow-hidden">
+      {/* Backdrop Image with Gradient */}
+      <div className="absolute inset-0">
+        <img
+          src={movie.backdrop}
+          alt=""
+          className={`w-full h-full object-cover transition-opacity duration-700 ${imageLoaded ? 'opacity-100' : 'opacity-0'}`}
+          loading="eager"
+          onLoad={() => setImageLoaded(true)}
+        />
+        {!imageLoaded && <div className="absolute inset-0 bg-surface animate-pulse" />}
+        
+        {/* Netflix-style gradient overlays */}
+        <div className="absolute inset-0 bg-gradient-to-r from-background via-background/70 to-transparent" />
+        <div className="absolute inset-0 bg-gradient-to-t from-background via-transparent to-transparent opacity-90" />
+        <div className="absolute inset-0 bg-gradient-to-b from-background/40 via-transparent to-transparent" />
+      </div>
+
+      {/* Content */}
+      <div className="absolute inset-0 flex items-end">
+        <div className="w-full max-w-7xl mx-auto px-4 sm:px-6 lg:px-16 pb-20 sm:pb-24 lg:pb-32">
+          <motion.div
+            initial={{ opacity: 0, y: 30 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.8, ease: [0.4, 0, 0.2, 1] }}
+            className="max-w-2xl"
+          >
+            {/* Title */}
+            <h1 className="text-3xl sm:text-5xl md:text-6xl lg:text-7xl font-black text-white mb-4 drop-shadow-2xl tracking-tight leading-tight">
+              {movie.title}
+            </h1>
+
+            {/* Metadata */}
+            <div className="flex flex-wrap items-center gap-x-3 gap-y-2 mb-4 text-sm md:text-base">
+              <span className="text-green-400 font-bold">{movie.match}% Eşleşme</span>
+              <span className="text-foreground-muted hidden sm:inline">·</span>
+              <span className="text-foreground-muted">{movie.year}</span>
+              <span className="text-foreground-muted hidden sm:inline">·</span>
+              <span className="px-2 py-0.5 border border-foreground-muted/50 text-foreground-muted text-xs rounded">{movie.duration}</span>
+              <span className="px-2 py-0.5 border border-foreground-muted/50 text-foreground-muted text-xs rounded">4K</span>
+            </div>
+
+            {/* Genres */}
+            <div className="flex flex-wrap items-center gap-x-2 gap-y-1 mb-6">
+              {movie.genres.map((genre, idx) => (
+                <span key={genre} className="text-white/90 text-sm sm:text-base">
+                  {genre}
+                  {idx < movie.genres.length - 1 && <span className="mx-2 text-white/40">•</span>}
+                </span>
+              ))}
+            </div>
+
+            {/* Description */}
+            <p className="text-base sm:text-lg text-white/90 mb-6 sm:mb-8 line-clamp-3 drop-shadow-lg max-w-xl">
+              {movie.description}
+            </p>
+
+            {/* Action Buttons */}
+            <div className="flex flex-wrap items-center gap-3 sm:gap-4">
+              <button 
+                onClick={onPlay}
+                className="flex items-center justify-center gap-2 sm:gap-3 px-6 sm:px-8 py-2.5 sm:py-3 bg-white text-black font-bold rounded-lg hover:bg-white/90 active:scale-95 transition-all duration-200 focus:outline-none focus-visible:ring-2 focus-visible:ring-white focus-visible:ring-offset-2 focus-visible:ring-offset-background"
+              >
+                <Play size={24} fill="currentColor" />
+                <span className="text-base sm:text-lg">Oynat</span>
+              </button>
+
+              <button
+                className="flex items-center justify-center gap-2 sm:gap-3 px-6 sm:px-8 py-2.5 sm:py-3 bg-white/20 backdrop-blur-sm text-white font-bold rounded-lg hover:bg-white/30 active:scale-95 transition-all duration-200"
+              >
+                <Info size={24} />
+                <span className="text-base sm:text-lg">Daha Fazla Bilgi</span>
+              </button>
+
+              <div className="flex items-center gap-2 sm:gap-3 ml-auto sm:ml-0">
+                <button
+                  onClick={() => setIsInList(!isInList)}
+                  className={`p-2.5 sm:p-3 rounded-full border-2 transition-all duration-200 ${
+                    isInList ? 'bg-white border-white text-black' : 'border-white/50 text-white hover:border-white'
+                  }`}
+                >
+                  {isInList ? <Check size={22} /> : <Plus size={22} />}
+                </button>
+
+                <button
+                  onClick={() => setIsMuted(!isMuted)}
+                  className="p-2.5 sm:p-3 rounded-full border-2 border-white/50 text-white hover:border-white transition-all duration-200"
+                >
+                  {isMuted ? <VolumeX size={22} /> : <Volume2 size={22} />}
+                </button>
+              </div>
+            </div>
+          </motion.div>
+        </div>
+      </div>
+
+      {/* Bottom Gradient */}
+      <div className="absolute bottom-0 left-0 right-0 h-48 sm:h-64 bg-gradient-to-t from-background via-background/95 to-transparent pointer-events-none" />
+    </div>
+  );
+});
+
+// ==========================================
+// MAIN COMPONENT
+// ==========================================
+
+export const HomePage = memo(function HomePage() {
+  const [selectedItem, setSelectedItem] = useState<any>(null);
+
+  const { profile } = useAuth();
+
+  // Instantly load all content - no loading states
+  const handlePlay = useCallback((item: any) => {
+    setSelectedItem(item);
   }, []);
 
-  // Load M3U only once when profile is available
-  useEffect(() => {
-    if (!profile || m3uFetchInitiated) return;
+  const handleClosePlayer = useCallback(() => {
+    setSelectedItem(null);
+  }, []);
 
-    if (profile.m3u_url) {
-      setM3uFetchInitiated(true);
-      loadFromM3uUrl(profile.m3u_url).finally(() => {
-        setLoading(false);
-      });
-    } else {
-      setLoading(false);
-    }
-  }, [profile, loadFromM3uUrl, m3uFetchInitiated]);
-
-  // Memoized curated lists - Only recalculate when data changes
-  const turkishChannels = useMemo(() => {
-    if (!liveChannels.length) return [];
-    const priority = ['TRT 1', 'ATV', 'KANAL D', 'STAR', 'SHOW', 'TV8', 'NOW', 'FOX', 'BEYAZ', 'HALK'];
-    
-    return liveChannels.filter(c => {
-        const name = c.name.toUpperCase();
-        return priority.some(p => name.includes(p));
-    }).slice(0, 10);
-  }, [liveChannels]);
-
-  const featuredMovies = useMemo(() => {
-      if (!movies.length) return [];
-      return [...movies]
-        .sort((a, b) => (b.rating || 0) - (a.rating || 0))
-        .slice(0, 10);
-  }, [movies]);
-
-  const featuredSeries = useMemo(() => {
-      if (!series.length) return [];
-      return [...series].slice(0, 10);
-  }, [series]);
-
-  // Memoized handlers
-  const handleSearchChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
-    setSearchQuery(e.target.value);
-    setIsSearchFocused(true);
-  }, [setSearchQuery]);
-
-  const handleSearchClear = useCallback(() => {
-    setSearchQuery('');
-    setIsSearchFocused(false);
-  }, [setSearchQuery]);
-
-  const handleItemSelect = useCallback((item: any) => {
-    setSelectedItem(item);
-    setIsSearchFocused(false);
-  }, [setSelectedItem]);
-
-  // Loading Skeleton
-  if ((loading || storeLoading) && !turkishChannels.length) {
-     return (
-        <div className="min-h-screen bg-background flex flex-col items-center justify-center p-4">
-           <div className="w-full max-w-2xl space-y-8 animate-pulse">
-              <div className="h-16 bg-surface/50 rounded-full w-full" />
-              <div className="space-y-4">
-                  <div className="h-8 w-48 bg-surface/30 rounded" />
-                  <div className="flex gap-4 overflow-hidden">
-                      {[...Array(5)].map((_, i) => (
-                          <div key={i} className="h-40 w-64 bg-surface/30 rounded-xl flex-shrink-0" />
-                      ))}
-                  </div>
-              </div>
-           </div>
-        </div>
-     );
-  }
-
-  // No Content
-  if (!loading && !storeLoading && !profile?.m3u_url) {
+  // No Content State
+  if (!profile?.m3u_url) {
     return (
       <div className="min-h-screen bg-background flex flex-col items-center justify-center text-center p-4">
         <Header />
@@ -156,187 +251,69 @@ export const HomePage = memo(function HomePage() {
     <div className="min-h-screen bg-background flex flex-col">
       <Header />
 
-      <main className="flex-1 w-full pb-20 pt-24">
-        
-        {/* --- SECTION 1: SEARCH --- */}
-        <div className="w-full max-w-4xl mx-auto px-4 mb-16 relative z-30" ref={searchContainerRef}>
-            <div className="text-center mb-6">
-                <h1 className="text-2xl md:text-3xl font-bold text-white mb-2">Hoşgeldin</h1>
-                <p className="text-gray-400 text-sm">Favori içeriklerini saniyeler içinde bul.</p>
-            </div>
+      <main className="flex-1 w-full pb-20">
+        {/* HERO SECTION */}
+        <HeroSection 
+          movie={FEATURED_HERO} 
+          onPlay={() => handlePlay(FEATURED_HERO)} 
+        />
 
-            <div className="relative group">
-                <div className="relative flex items-center shadow-[0_0_30px_rgba(229,9,20,0.15)] rounded-2xl transition-shadow duration-300 group-focus-within:shadow-[0_0_50px_rgba(229,9,20,0.3)]">
-                    <input 
-                        type="text" 
-                        placeholder="Film, Dizi veya Kanal Ara..." 
-                        className={`w-full bg-surface border border-white/10 rounded-2xl py-5 pl-16 pr-14 text-white placeholder-gray-500 text-lg focus:outline-none focus:border-primary/50 transition-all ${isSearchFocused && searchQuery.length > 1 ? 'rounded-b-none border-b-0' : ''}`}
-                        value={searchQuery}
-                        onChange={handleSearchChange}
-                        onFocus={() => setIsSearchFocused(true)}
-                    />
-                    <Search className="absolute left-6 text-primary" size={24} />
-                    {searchQuery && (
-                        <button 
-                            onClick={handleSearchClear}
-                            className="absolute right-5 text-gray-500 hover:text-white"
-                        >
-                            <X size={20} />
-                        </button>
-                    )}
-                </div>
+        {/* CONTENT ROWS */}
+        <div className="relative z-10 -mt-24 space-y-8">
+          
+          {/* Trending Movies */}
+          <NetflixRow 
+            title="Şimdi Trend Olanlar" 
+            movies={TRENDING_MOVIES} 
+            isTop10={false}
+            onSelectMovie={handlePlay}
+          />
 
-                {/* LIVE SEARCH RESULTS DROPDOWN */}
-                <AnimatePresence>
-                    {isSearchFocused && searchQuery.length > 1 && (
-                        <motion.div 
-                            initial={{ opacity: 0, y: -10 }}
-                            animate={{ opacity: 1, y: 0 }}
-                            exit={{ opacity: 0, y: -10 }}
-                            className="absolute top-full left-0 right-0 bg-[#1a1a1a] border border-white/10 border-t-0 rounded-b-2xl shadow-2xl overflow-hidden max-h-[60vh] overflow-y-auto z-50 custom-scrollbar"
-                        >
-                            {searchResults.length > 0 ? (
-                                <div className="py-2">
-                                    <div className="px-4 py-2 text-xs font-semibold text-gray-500 uppercase tracking-wider border-b border-white/5">
-                                        En İyi Eşleşmeler ({searchResults.length})
-                                    </div>
-                                    {searchResults.slice(0, 10).map((item: any) => (
-                                        <SearchResultItem 
-                                            key={item.id} 
-                                            item={item} 
-                                            onSelect={handleItemSelect} 
-                                        />
-                                    ))}
-                                    {searchResults.length > 10 && (
-                                        <div className="px-4 py-3 text-center border-t border-white/10 bg-white/5">
-                                            <button className="text-primary text-xs font-bold hover:underline flex items-center justify-center gap-1 mx-auto">
-                                                TÜM SONUÇLARI GÖR <ChevronRight size={12} />
-                                            </button>
-                                        </div>
-                                    )}
-                                </div>
-                            ) : (
-                                <div className="p-8 text-center text-gray-500 text-sm">
-                                    "{searchQuery}" için sonuç bulunamadı.
-                                </div>
-                            )}
-                        </motion.div>
-                    )}
-                </AnimatePresence>
-            </div>
+          {/* Popular Series */}
+          <NetflixRow 
+            title="Popüler Diziler" 
+            movies={POPULAR_SERIES} 
+            isTop10={false}
+            onSelectMovie={handlePlay}
+          />
+
+          {/* Turkish Channels */}
+          <NetflixRow 
+            title="Yerel Kanallar" 
+            movies={TURKISH_CHANNELS} 
+            isTop10={false}
+            onSelectMovie={handlePlay}
+          />
+
+          {/* beIN Sports */}
+          <NetflixRow 
+            title="beIN Sports" 
+            movies={BEIN_SPORTS} 
+            isTop10={false}
+            onSelectMovie={handlePlay}
+          />
+
         </div>
-
-        {/* --- SECTION 2: TV CHANNELS CAROUSEL --- */}
-        {turkishChannels.length > 0 && (
-            <div className="mb-12">
-                <div className="px-4 md:px-12 mb-4 flex items-center gap-3">
-                    <div className="w-1 h-6 bg-red-600 rounded-full" />
-                    <h2 className="text-xl font-bold text-white tracking-wide">Öne Çıkan TV Kanalları</h2>
-                </div>
-                
-                <div className="relative group px-4 md:px-12">
-                     <div className="flex overflow-x-auto gap-4 pb-4 snap-x snap-mandatory hide-scrollbar" style={{ scrollbarWidth: 'none' }}>
-                        {turkishChannels.map((channel: any) => (
-                            <ChannelCard 
-                                key={channel.id} 
-                                channel={channel} 
-                                onSelect={handleItemSelect}
-                            />
-                        ))}
-                    </div>
-                </div>
-            </div>
-        )}
-
-        {/* --- SECTION 3: MOVIES CAROUSEL --- */}
-        {featuredMovies.length > 0 && (
-            <div className="mb-12">
-                <NetflixRow 
-                    title="Öne Çıkan Filmler" 
-                    movies={featuredMovies} 
-                    isTop10={false}
-                    onSelectMovie={handleItemSelect}
-                />
-            </div>
-        )}
-
-        {/* --- SECTION 4: SERIES CAROUSEL --- */}
-        {featuredSeries.length > 0 && (
-            <div className="mb-4">
-                <NetflixRow 
-                    title="Popüler Diziler" 
-                    movies={featuredSeries} 
-                    isTop10={false}
-                    onSelectMovie={handleItemSelect}
-                />
-            </div>
-        )}
-
       </main>
 
       {/* Footer */}
-      <footer className="py-6 text-center text-[10px] text-zinc-600 border-t border-white/5 bg-background">
-        <p>Flixify Pro &copy; 2026</p>
+      <footer className="py-8 text-center border-t border-white/5 bg-background">
+        <div className="flex items-center justify-center gap-2 text-primary mb-4">
+          <Tv size={20} />
+          <span className="text-lg font-bold">FLIXIFY</span>
+        </div>
+        <p className="text-gray-500 text-xs">© 2026 Flixify. Tüm hakları saklıdır.</p>
       </footer>
 
-      {selectedItem && (
-        <VideoPlayer
-          content={selectedItem}
-          onClose={() => setSelectedItem(null)}
-        />
-      )}
-    </div>
-  );
-});
-
-// Memoized search result item
-const SearchResultItem = memo(function SearchResultItem({ item, onSelect }: { item: any, onSelect: (item: any) => void }) {
-  return (
-    <div 
-        onClick={() => onSelect(item)}
-        className="flex items-center gap-4 px-4 py-3 hover:bg-white/5 cursor-pointer transition-colors border-b border-white/5 last:border-0 text-left group"
-    >
-        <div className="w-10 h-14 bg-zinc-800 rounded overflow-hidden flex-shrink-0 shadow-sm relative">
-            <img src={item.logo || item.poster} alt={item.name} className="w-full h-full object-cover" loading="lazy" decoding="async" />
-            <div className="absolute inset-0 bg-black/40 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
-                <Play size={12} className="text-white" fill="white" />
-            </div>
-        </div>
-        <div className="flex-1 min-w-0">
-            <h4 className="text-white text-sm font-medium truncate group-hover:text-primary transition-colors">{item.name}</h4>
-            <div className="flex items-center gap-2 text-xs text-gray-400 mt-0.5">
-                <span className={`px-1.5 py-0.5 rounded-[3px] text-[10px] font-bold uppercase ${
-                    item.type === 'live' ? 'bg-red-900/40 text-red-400' : 'bg-blue-900/40 text-blue-400'
-                }`}>
-                    {item.type === 'live' ? 'Canlı' : item.type === 'movie' ? 'Film' : 'Dizi'}
-                </span>
-                {item.year && <span>{item.year}</span>}
-            </div>
-        </div>
-    </div>
-  );
-});
-
-// Memoized channel card for TV channels section
-const ChannelCard = memo(function ChannelCard({ channel, onSelect }: { channel: any, onSelect: (item: any) => void }) {
-  return (
-    <div 
-        onClick={() => onSelect(channel)}
-        className="flex-none w-40 md:w-56 aspect-video bg-[#1a1a1a] border border-white/5 rounded-lg flex items-center justify-center p-4 snap-start cursor-pointer hover:border-red-600 hover:scale-105 transition-all duration-300 relative overflow-hidden group/card shadow-lg"
-    >
-        <img 
-            src={channel.logo} 
-            alt={channel.name} 
-            className="max-h-12 md:max-h-16 max-w-full object-contain filter grayscale group-hover/card:grayscale-0 transition-all duration-300" 
-            loading="lazy"
-            decoding="async"
-        />
-        <div className="absolute top-2 right-2 flex gap-1">
-            <div className="bg-red-600 text-white text-[9px] font-bold px-1.5 py-0.5 rounded shadow-sm">CANLI</div>
-        </div>
-        <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-transparent opacity-0 group-hover/card:opacity-100 transition-opacity duration-300 flex items-end justify-center pb-2">
-            <span className="text-white text-xs font-semibold">{channel.name}</span>
-        </div>
+      {/* Video Player Modal */}
+      <AnimatePresence>
+        {selectedItem && (
+          <VideoPlayer
+            content={selectedItem}
+            onClose={handleClosePlayer}
+          />
+        )}
+      </AnimatePresence>
     </div>
   );
 });
