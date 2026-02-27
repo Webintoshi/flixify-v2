@@ -15,14 +15,58 @@ export async function getUserIptvUrl(userId: string): Promise<string | null> {
     return data.m3u_url.trim();
 }
 
+// HTTP URL'yi HTTPS'ye çevirmeyi dene
+function tryHttps(url: string): string {
+    if (url.startsWith('http://')) {
+        return url.replace('http://', 'https://');
+    }
+    return url;
+}
+
+
+
 export async function fetchUserPlaylist(m3uUrl: string): Promise<string | null> {
-    const trimmedUrl = m3uUrl.trim();
+    let trimmedUrl = m3uUrl.trim();
+    
+    // URL'deki boşlukları temizle
+    trimmedUrl = trimmedUrl.replace(/\s/g, '');
 
     console.log('[IPTV_SERVICE] ========================================');
     console.log('[IPTV_SERVICE] Starting playlist fetch for:', trimmedUrl.substring(0, 50) + '...');
     console.log('[IPTV_SERVICE] ========================================');
 
-    // ÖNCELİK 1: Direct fetch (IPTV provider'lar genellikle browser'lardan direkt bağlantıya izin verir)
+    // ÖNCELİK 0: HTTPS versiyonunu dene (Mixed Content sorununu çözer)
+    if (trimmedUrl.startsWith('http://')) {
+        const httpsUrl = tryHttps(trimmedUrl);
+        console.log('[IPTV_SERVICE] STEP 0: Trying HTTPS version...');
+        try {
+            const controller = new AbortController();
+            const timeoutId = setTimeout(() => controller.abort(), 15000);
+
+            const httpsResponse = await fetch(httpsUrl, {
+                signal: controller.signal,
+                mode: 'cors',
+                headers: {
+                    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
+                }
+            });
+
+            clearTimeout(timeoutId);
+
+            if (httpsResponse.ok) {
+                const text = await httpsResponse.text();
+                if (text && text.includes('#EXTM3U')) {
+                    console.log('[IPTV_SERVICE] ✅ SUCCESS: Fetched M3U via HTTPS');
+                    console.log('[IPTV_SERVICE] Playlist size:', text.length, 'bytes');
+                    return text;
+                }
+            }
+        } catch (err: any) {
+            console.warn('[IPTV_SERVICE] HTTPS version failed:', err.message);
+        }
+    }
+
+    // ÖNCELİK 1: Direct fetch
     console.log('[IPTV_SERVICE] STEP 1: Trying direct fetch...');
     try {
         const controller = new AbortController();
@@ -55,7 +99,7 @@ export async function fetchUserPlaylist(m3uUrl: string): Promise<string | null> 
     console.log('[IPTV_SERVICE] STEP 2: Trying Flixify Proxy...');
     try {
         const controller = new AbortController();
-        const timeoutId = setTimeout(() => controller.abort(), 15000);
+        const timeoutId = setTimeout(() => controller.abort(), 20000);
 
         const proxyResponse = await fetch(`/api/proxy?url=${encodeURIComponent(trimmedUrl)}`, {
             signal: controller.signal,
@@ -71,7 +115,7 @@ export async function fetchUserPlaylist(m3uUrl: string): Promise<string | null> 
                 console.log('[IPTV_SERVICE] Playlist size:', text.length, 'bytes');
                 return text;
             } else {
-                console.warn('[IPTV_SERVICE] Proxy returned non-M3U content (first 100 chars):', text.substring(0, 100));
+                console.warn('[IPTV_SERVICE] Proxy returned non-M3U content (first 200 chars):', text.substring(0, 200));
             }
         } else {
             console.warn('[IPTV_SERVICE] Flixify Proxy HTTP error:', proxyResponse.status);
@@ -83,7 +127,8 @@ export async function fetchUserPlaylist(m3uUrl: string): Promise<string | null> 
     // ÖNCELİK 3: Public proxies
     const publicProxies = [
         { name: 'AllOrigins', url: `https://api.allorigins.win/raw?url=${encodeURIComponent(trimmedUrl)}` },
-        { name: 'CORS Proxy', url: `https://corsproxy.io/?${encodeURIComponent(trimmedUrl)}` }
+        { name: 'CORS Proxy', url: `https://corsproxy.io/?${encodeURIComponent(trimmedUrl)}` },
+        { name: 'ThingProxy', url: `https://thingproxy.freeboard.io/fetch/${trimmedUrl}` }
     ];
 
     for (const proxy of publicProxies) {
@@ -105,7 +150,7 @@ export async function fetchUserPlaylist(m3uUrl: string): Promise<string | null> 
                     console.log('[IPTV_SERVICE] Playlist size:', text.length, 'bytes');
                     return text;
                 } else {
-                    console.warn(`[IPTV_SERVICE] ${proxy.name} returned non-M3U content`);
+                    console.warn(`[IPTV_SERVICE] ${proxy.name} returned non-M3U content (first 100 chars):`, text.substring(0, 100));
                 }
             } else {
                 console.warn(`[IPTV_SERVICE] ${proxy.name} HTTP error:`, response.status);

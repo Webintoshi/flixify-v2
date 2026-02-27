@@ -1,5 +1,5 @@
 export const config = {
-    runtime: 'edge', // Vercel Edge Runtime - 10 saniye limitini stream için kaldırır
+    runtime: 'edge',
 };
 
 export default async function handler(req) {
@@ -7,10 +7,13 @@ export default async function handler(req) {
     const targetUrl = url.searchParams.get('url');
 
     if (!targetUrl) {
-        return new Response('URL parametresi eksik.', { status: 400 });
+        return new Response(JSON.stringify({ error: 'URL parametresi eksik.' }), { 
+            status: 400,
+            headers: { 'Content-Type': 'application/json' }
+        });
     }
 
-    // Preflight ve CORS Başlıkları
+    // CORS Headers
     const corsHeaders = {
         'Access-Control-Allow-Origin': '*',
         'Access-Control-Allow-Methods': 'GET, HEAD, OPTIONS',
@@ -18,56 +21,80 @@ export default async function handler(req) {
     };
 
     if (req.method === 'OPTIONS') {
-        return new Response(null, {
-            status: 200,
-            headers: corsHeaders,
-        });
+        return new Response(null, { status: 200, headers: corsHeaders });
     }
 
+    console.log('[PROXY] Fetching:', targetUrl.substring(0, 80) + '...');
+
     try {
-        const headersToForward = new Headers(req.headers);
-        // Vercel / Target IP tespit araçlarını gizle
-        headersToForward.delete('host');
-        headersToForward.delete('origin');
-        headersToForward.delete('referer');
-        // IPTV sunucusunun yabancılamaması için popüler bir tarayıcı User-Agent'ı gönder
+        const headersToForward = new Headers();
         headersToForward.set('user-agent', 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/121.0.0.0 Safari/537.36');
         headersToForward.set('accept', '*/*');
+        headersToForward.set('accept-language', 'tr-TR,tr;q=0.9,en-US;q=0.8,en;q=0.7');
 
         const response = await fetch(targetUrl, {
-            method: req.method,
+            method: 'GET',
             headers: headersToForward,
-            redirect: 'follow', // Yönlendirmeleri takip et
+            redirect: 'follow',
         });
 
-        const newHeaders = new Headers(response.headers);
+        console.log('[PROXY] Response status:', response.status);
 
-        // Gelen yanıttaki katı CORS kurallarını tam anlamıyla eziyoruz
-        newHeaders.set('Access-Control-Allow-Origin', '*');
-        newHeaders.set('Access-Control-Allow-Methods', 'GET, HEAD, OPTIONS');
-        newHeaders.set('Access-Control-Expose-Headers', '*');
-        newHeaders.delete('x-frame-options');
-        newHeaders.delete('content-security-policy'); // HLS.js için csp'yi gevşet
-
-        // Video streamini bellekte biriktirmeden (Buffer aşımı yapmadan) doğrudan (pipe) olarak tarayıcıya geri döndür
-        const { readable, writable } = new TransformStream();
-
-        // Asenkron olarak veriyi akıt
-        if (response.body) {
-            response.body.pipeTo(writable).catch((err) => {
-                console.error("Stream pipe hatası:", err);
+        if (!response.ok) {
+            return new Response(JSON.stringify({ 
+                error: 'Target server error',
+                status: response.status 
+            }), { 
+                status: response.status,
+                headers: { 
+                    ...corsHeaders, 
+                    'Content-Type': 'application/json' 
+                }
             });
-        } else {
-            const writer = writable.getWriter();
-            writer.close();
         }
 
-        return new Response(readable, {
-            status: response.status,
-            statusText: response.statusText,
-            headers: newHeaders,
+        const contentType = response.headers.get('content-type') || '';
+        console.log('[PROXY] Content-Type:', contentType);
+
+        // M3U içeriğini kontrol et
+        const text = await response.text();
+        
+        if (!text.includes('#EXTM3U')) {
+            console.warn('[PROXY] Response does not contain M3U content. First 200 chars:', text.substring(0, 200));
+            return new Response(JSON.stringify({ 
+                error: 'Invalid M3U content',
+                preview: text.substring(0, 500)
+            }), { 
+                status: 400,
+                headers: { 
+                    ...corsHeaders, 
+                    'Content-Type': 'application/json' 
+                }
+            });
+        }
+
+        console.log('[PROXY] Successfully fetched M3U. Size:', text.length, 'bytes');
+
+        return new Response(text, {
+            status: 200,
+            headers: {
+                ...corsHeaders,
+                'Content-Type': 'application/vnd.apple.mpegurl',
+                'Cache-Control': 'no-cache',
+            },
         });
+
     } catch (error) {
-        return new Response('Proxy Hatası: ' + error.message, { status: 500 });
+        console.error('[PROXY] Error:', error.message);
+        return new Response(JSON.stringify({ 
+            error: 'Proxy Hatası',
+            message: error.message 
+        }), { 
+            status: 500,
+            headers: { 
+                ...corsHeaders, 
+                'Content-Type': 'application/json' 
+            }
+        });
     }
 }
