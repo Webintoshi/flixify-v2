@@ -1,8 +1,8 @@
 import { supabase } from './supabase';
 
 // Coolify Proxy Server URL
-// Coolify'da ayrı bir service olarak çalışan proxy
-const PROXY_BASE_URL = import.meta.env.VITE_PROXY_URL || 'http://localhost:3001';
+// Aynı container'da çalışan proxy (nginx üzerinden /proxy path)
+const PROXY_BASE_URL = '/proxy';
 
 export async function getUserIptvUrl(userId: string): Promise<string | null> {
     const { data, error } = await supabase
