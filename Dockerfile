@@ -9,18 +9,16 @@ WORKDIR /app
 # Copy package files
 COPY package*.json ./
 
-# Install dependencies
-RUN npm install
+# Install ALL dependencies (ignore NODE_ENV)
+RUN npm install --include=dev
 
 # Copy source code
 COPY . .
 
-# Build React app
-ENV NODE_ENV=development
+# Build React app (ignore NODE_ENV)
 RUN npm run build
-ENV NODE_ENV=production
 
-# Install express and http-proxy-middleware for production
+# Install express and http-proxy-middleware
 RUN npm install express http-proxy-middleware
 
 # Expose port 3000
