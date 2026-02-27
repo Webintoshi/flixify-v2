@@ -105,7 +105,9 @@ export const VideoPlayer = memo(function VideoPlayer({
 
     try {
       // HLS.js ile oynat
-      if (Hls.isSupported() && (url.includes('.m3u8') || url.includes('.ts'))) {
+      if (Hls.isSupported() && (url.includes('.m3u8') || url.includes('.ts') || url.includes('/api/'))) {
+        console.log('[Player] Using HLS.js for stream:', url.substring(0, 60) + '...');
+        
         const hls = new Hls({
           maxBufferLength: 30,
           maxMaxBufferLength: 60,
@@ -114,26 +116,39 @@ export const VideoPlayer = memo(function VideoPlayer({
           enableWorker: true,
           debug: false,
           
-          // Retry configuration
-          manifestLoadingMaxRetry: 2,
+          // CORS için credentials mode
+          xhrSetup: function(xhr, url) {
+            xhr.withCredentials = false;
+          },
+          
+          // Retry configuration - daha agresif retry
+          manifestLoadingMaxRetry: 3,
           manifestLoadingRetryDelay: 1000,
-          levelLoadingMaxRetry: 2,
+          levelLoadingMaxRetry: 3,
           levelLoadingRetryDelay: 1000,
-          fragLoadingMaxRetry: 3,
+          fragLoadingMaxRetry: 4,
           fragLoadingRetryDelay: 1000,
           
           // Adaptive bitrate
           startLevel: -1, // Auto
           abrEwmaFastLive: 3.0,
           abrEwmaSlowLive: 9.0,
+          
+          // Low latency settings
+          lowLatencyMode: false,
         });
 
         hlsRef.current = hls;
 
         // Error handling
         hls.on(Hls.Events.ERROR, (_event, data) => {
+          console.warn('[Player] HLS Error:', data.type, data.details, data.fatal);
+          
           if (data.fatal) {
             handleFatalError(data);
+          } else {
+            // Non-fatal hataları logla ama devam et
+            console.log('[Player] Non-fatal HLS error, continuing...');
           }
         });
 
@@ -356,8 +371,14 @@ export const VideoPlayer = memo(function VideoPlayer({
         onPause={() => setIsPlaying(false)}
         onWaiting={() => setIsLoading(true)}
         onPlaying={() => setIsLoading(false)}
+        onError={(e) => {
+          console.error('[Player] Video element error:', e);
+          setError('Video playback error');
+          setIsLoading(false);
+        }}
         playsInline
-        crossOrigin="anonymous"
+        muted={false}
+        autoPlay
       />
 
       {/* Loading Overlay */}

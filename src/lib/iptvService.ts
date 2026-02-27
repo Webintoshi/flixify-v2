@@ -1,8 +1,13 @@
 import { supabase } from './supabase';
 
-// Coolify Proxy Server URL
-// Aynı container'da çalışan proxy (nginx üzerinden /proxy path)
-const PROXY_BASE_URL = 'http://app.flixify.pro/api/p';
+// API Proxy URL
+// Ortam değişkeninden al, yoksa göreceli path kullan
+const API_BASE = import.meta.env.VITE_API_URL || '';
+// /proxy path'i nginx'den bağımsız, server.js'e yönlendirir
+const PROXY_BASE_URL = `/proxy`;
+
+console.log('[IPTV_SERVICE] API_BASE:', API_BASE);
+console.log('[IPTV_SERVICE] PROXY_BASE_URL:', PROXY_BASE_URL);
 
 export async function getUserIptvUrl(userId: string): Promise<string | null> {
     const { data, error } = await supabase
@@ -33,14 +38,42 @@ export async function fetchUserPlaylist(m3uUrl: string): Promise<string | null> 
     console.log('[IPTV_SERVICE] Starting playlist fetch for:', trimmedUrl.substring(0, 80) + '...');
     console.log('[IPTV_SERVICE] Protocol:', trimmedUrl.startsWith('https') ? 'HTTPS' : 'HTTP');
     console.log('[IPTV_SERVICE] Proxy URL:', PROXY_BASE_URL);
+    console.log('[IPTV_SERVICE] Window Location:', window.location.origin);
     console.log('[IPTV_SERVICE] ========================================');
 
-    // IPTV sunucuları HTTP üzerinde çalışır
-    // Coolify Proxy Server üzerinden istek at
-
-    console.log('[IPTV_SERVICE] Trying Coolify Proxy Server...');
+    // Önce doğrudan fetch dene (bazı HTTPS M3U'lar çalışabilir)
+    console.log('[IPTV_SERVICE] Trying direct fetch first...');
     try {
-        const proxyUrl = `${PROXY_BASE_URL}?url=${encodeURIComponent(trimmedUrl)}`;
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 10000);
+        
+        const response = await fetch(trimmedUrl, {
+            signal: controller.signal,
+            headers: {
+                'User-Agent': 'Flixify/1.0',
+                'Accept': '*/*',
+            },
+            // CORS modu - eğer sunucu CORS destekliyorsa çalışır
+            mode: 'cors',
+        });
+        
+        clearTimeout(timeoutId);
+        
+        if (response.ok) {
+            const text = await response.text();
+            if (text.includes('#EXTM3U')) {
+                console.log('[IPTV_SERVICE] ✅ SUCCESS: Direct fetch worked!');
+                return text;
+            }
+        }
+    } catch (err: any) {
+        console.log('[IPTV_SERVICE] Direct fetch failed (expected for HTTP URLs):', err.message);
+    }
+
+    // Proxy üzerinden dene
+    console.log('[IPTV_SERVICE] Trying Proxy Server...');
+    try {
+        const proxyUrl = `${window.location.origin}/proxy?url=${encodeURIComponent(trimmedUrl)}`;
         console.log('[IPTV_SERVICE] Full proxy URL:', proxyUrl);
 
         const controller = new AbortController();
@@ -68,7 +101,7 @@ export async function fetchUserPlaylist(m3uUrl: string): Promise<string | null> 
 
         // M3U kontrolü
         if (text.includes('#EXTM3U')) {
-            console.log('[IPTV_SERVICE] ✅ SUCCESS: Fetched M3U via Coolify Proxy');
+            console.log('[IPTV_SERVICE] ✅ SUCCESS: Fetched M3U via Proxy');
             console.log('[IPTV_SERVICE] Playlist size:', text.length, 'bytes');
             return text;
         } else {
@@ -81,7 +114,7 @@ export async function fetchUserPlaylist(m3uUrl: string): Promise<string | null> 
             }
         }
     } catch (err: any) {
-        console.error('[IPTV_SERVICE] Coolify Proxy error:', err.message);
+        console.error('[IPTV_SERVICE] Proxy error:', err.message);
         
         // Proxy çalışmıyorsa, public CORS proxy'leri dene
         console.log('[IPTV_SERVICE] Trying public CORS proxies as fallback...');
@@ -134,11 +167,16 @@ export async function fetchUserPlaylist(m3uUrl: string): Promise<string | null> 
 export function getProxiedStreamUrl(originalUrl: string): string {
     if (!originalUrl) return '';
     
-    // Zaten HTTPS ise proxy'ye gerek yok
+    console.log('[IPTV_SERVICE] Getting proxied URL for:', originalUrl.substring(0, 60) + '...');
+    
+    // Zaten HTTPS ise ve aynı origin ise proxy'ye gerek yok
     if (originalUrl.startsWith('https://')) {
+        console.log('[IPTV_SERVICE] HTTPS URL, using directly');
         return originalUrl;
     }
     
-    // HTTP stream'leri proxy'den geçir
-    return `${PROXY_BASE_URL}/?url=${encodeURIComponent(originalUrl)}`;
+    // HTTP stream'leri proxy'den geçir (CORS için gerekli)
+    const proxyUrl = `${window.location.origin}${PROXY_BASE_URL}?url=${encodeURIComponent(originalUrl)}`;
+    console.log('[IPTV_SERVICE] HTTP URL, using proxy:', proxyUrl.substring(0, 80) + '...');
+    return proxyUrl;
 }

@@ -1,5 +1,6 @@
 import express from 'express';
 import { createServer } from 'http';
+import cors from 'cors';
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -7,15 +8,14 @@ const PORT = process.env.PORT || 3000;
 app.set('trust proxy', true);
 app.use(express.json());
 
-app.use((req, res, next) => {
-  res.header('Access-Control-Allow-Origin', '*');
-  res.header('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
-  res.header('Access-Control-Allow-Headers', 'Origin, X-Requested-With, Content-Type, Accept');
-  next();
-});
+// CORS - tüm origin'lere izin ver
+app.use(cors({
+  origin: '*',
+  methods: ['GET', 'POST', 'OPTIONS'],
+  allowedHeaders: ['Origin', 'X-Requested-With', 'Content-Type', 'Accept', 'Authorization']
+}));
 
-// ========== API ROUTES ==========
-
+// ========== PROXY HANDLER ==========
 const proxyHandler = async (req, res) => {
   const targetUrl = req.query.url;
   
@@ -23,20 +23,16 @@ const proxyHandler = async (req, res) => {
     return res.status(400).json({ error: 'Missing url parameter' });
   }
   
-  // DNS çözümlemesi için
-    try {
-      const dns = await import('dns');
-      const { address } = await dns.promises.lookup('sifiriptvdns.com');
-      console.log(`[PROXY] DNS resolved: sifiriptvdns.com -> ${address}`);
-    } catch (e) {
-      console.log(`[PROXY] DNS lookup failed: ${e.message}`);
-    }
-    
-    console.log(`[PROXY] Fetching: ${targetUrl}`);
+  let decodedUrl;
+  try {
+    decodedUrl = decodeURIComponent(targetUrl);
+  } catch (e) {
+    return res.status(400).json({ error: 'Invalid URL encoding' });
+  }
+  
+  console.log(`[PROXY] Fetching: ${decodedUrl.substring(0, 100)}...`);
   
   try {
-    const decodedUrl = decodeURIComponent(targetUrl);
-    
     const controller = new AbortController();
     const timeout = setTimeout(() => controller.abort(), 30000);
     
@@ -45,7 +41,7 @@ const proxyHandler = async (req, res) => {
       headers: {
         'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
         'Accept': '*/*',
-        'Referer': 'http://sifiriptvdns.com/',
+        'Referer': decodedUrl,
       },
       signal: controller.signal,
       redirect: 'follow'
@@ -53,28 +49,42 @@ const proxyHandler = async (req, res) => {
     
     clearTimeout(timeout);
     
+    console.log(`[PROXY] Response: ${response.status}`);
+    
+    // Content headers
     const contentType = response.headers.get('content-type');
     if (contentType) res.setHeader('Content-Type', contentType);
     
-    const body = await response.text();
-    console.log(`[PROXY] Status: ${response.status}, Length: ${body.length}`);
-    console.log(`[PROXY] Body preview: ${body.substring(0, 200)}`);
-    
-    if (body.includes('#EXTM3U')) {
-      console.log('[PROXY] ✅ Valid M3U');
+    // Stream olarak gönder (büyük dosyalar için)
+    if (response.body) {
+      const reader = response.body.getReader();
+      
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        res.write(Buffer.from(value));
+      }
+      res.end();
+    } else {
+      const body = await response.text();
+      res.status(response.status).send(body);
     }
-    
-    res.status(response.status).send(body);
     
   } catch (error) {
     console.error('[PROXY] ERROR:', error.message);
-    res.status(500).json({ error: error.message });
+    res.status(502).json({ error: 'Proxy failed', message: error.message });
   }
 };
 
-// /api/p = proxy
+// ========== ROUTES ==========
+// Proxy routes - /proxy path'i nginx'den bağımsız
+app.get('/proxy', proxyHandler);
+
+// Health check
+app.get('/api/health', (req, res) => res.json({ ok: true, timestamp: new Date().toISOString() }));
+
+// Geriye dönük uyumluluk için /api/p de kalsın
 app.get('/api/p', proxyHandler);
-app.get('/api/health', (req, res) => res.json({ ok: true }));
 
 // Outbound IP check
 app.get('/api/ip', async (req, res) => {
@@ -87,13 +97,16 @@ app.get('/api/ip', async (req, res) => {
   }
 });
 
-// Static files
-app.use(express.static('/app/dist'));
+// Static files - Vite build output
+app.use(express.static('dist'));
 
 // SPA fallback
 app.use((req, res) => {
-  res.sendFile('/app/dist/index.html');
+  res.sendFile('dist/index.html', { root: process.cwd() });
 });
 
 const server = createServer(app);
-server.listen(PORT, () => console.log(`[SERVER] Port ${PORT}`));
+server.listen(PORT, () => {
+  console.log(`[SERVER] Running on port ${PORT}`);
+  console.log(`[SERVER] Proxy endpoint: http://localhost:${PORT}/proxy?url=...`);
+});

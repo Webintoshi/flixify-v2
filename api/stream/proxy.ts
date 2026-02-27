@@ -109,8 +109,10 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
     // 5. IPTV Origin'e istek at (with retry logic)
     const streamUrl = channel.stream_url;
+    console.log('[STREAM PROXY] Fetching stream:', streamUrl.substring(0, 80) + '...');
+    
     const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), 10000);
+    const timeout = setTimeout(() => controller.abort(), 30000); // 30 saniye timeout
 
     let response;
     let retryCount = 0;
@@ -118,6 +120,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
     while (retryCount < maxRetries) {
       try {
+        console.log(`[STREAM PROXY] Attempt ${retryCount + 1}/${maxRetries}`);
+        
         response = await fetch(streamUrl, {
           signal: controller.signal,
           headers: {
@@ -126,22 +130,43 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             'Accept-Encoding': 'gzip, deflate',
             'Connection': 'keep-alive',
           },
+          // @ts-ignore
+          redirect: 'follow',
         });
 
+        console.log('[STREAM PROXY] Response status:', response.status);
+        
         if (response.ok) break;
         
+        // 4xx hatalarında tekrar deneme (client hatası)
+        if (response.status >= 400 && response.status < 500) {
+          console.log('[STREAM PROXY] Client error, not retrying');
+          break;
+        }
+        
         retryCount++;
-        await new Promise(r => setTimeout(r, 1000 * retryCount));
-      } catch (err) {
+        if (retryCount < maxRetries) {
+          await new Promise(r => setTimeout(r, 1000 * retryCount));
+        }
+      } catch (err: any) {
+        console.error(`[STREAM PROXY] Attempt ${retryCount + 1} failed:`, err.message);
         retryCount++;
-        if (retryCount >= maxRetries) throw err;
+        if (retryCount >= maxRetries) {
+          clearTimeout(timeout);
+          throw err;
+        }
       }
     }
 
     clearTimeout(timeout);
 
     if (!response || !response.ok) {
-      return res.status(502).json({ error: 'Upstream stream unavailable' });
+      console.error('[STREAM PROXY] All attempts failed. Last status:', response?.status);
+      return res.status(502).json({ 
+        error: 'Upstream stream unavailable',
+        status: response?.status,
+        url: streamUrl.substring(0, 100) + '...'
+      });
     }
 
     // 6. Stream'i pipe et
