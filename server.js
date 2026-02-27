@@ -19,7 +19,6 @@ app.use((req, res, next) => {
 });
 
 // ========== PROXY ENDPOINT ==========
-// BOTH /proxy and /proxy/ (with trailing slash)
 const proxyHandler = async (req, res) => {
   const targetUrl = req.query.url;
   
@@ -31,11 +30,9 @@ const proxyHandler = async (req, res) => {
   console.log(`[PROXY] Fetching: ${targetUrl}`);
   
   try {
-    // URL'i decode et
     const decodedUrl = decodeURIComponent(targetUrl);
     console.log(`[PROXY] Decoded URL: ${decodedUrl}`);
     
-    // Fetch with timeout
     const controller = new AbortController();
     const timeout = setTimeout(() => controller.abort(), 30000);
     
@@ -44,7 +41,6 @@ const proxyHandler = async (req, res) => {
       headers: {
         'User-Agent': req.headers['user-agent'] || 'VLC/3.0.18 LibVLC/3.0.18',
         'Accept': '*/*',
-        'Accept-Encoding': 'gzip, deflate',
       },
       signal: controller.signal
     });
@@ -53,17 +49,14 @@ const proxyHandler = async (req, res) => {
     
     console.log(`[PROXY] Response: ${response.status} ${response.statusText}`);
     
-    // Response headers'ı kopyala
     const contentType = response.headers.get('content-type');
     if (contentType) {
       res.setHeader('Content-Type', contentType);
     }
     
-    // Body'yi stream olarak gönder
     const body = await response.text();
     console.log(`[PROXY] Body length: ${body.length} bytes`);
     
-    // M3U kontrolü
     if (body.includes('#EXTM3U')) {
       console.log('[PROXY] ✅ Valid M3U playlist');
     }
@@ -91,8 +84,8 @@ app.get('/health', (req, res) => {
 // ========== STATIC FILES (React App) ==========
 app.use(express.static('/app/dist'));
 
-// SPA fallback - EN SONDA olmalı!
-app.get('*', (req, res) => {
+// SPA fallback - app.use ile yapılmalı, app.get('*') çalışmıyor
+app.use((req, res) => {
   res.sendFile('/app/dist/index.html');
 });
 
