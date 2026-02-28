@@ -1,10 +1,15 @@
 import { createClient } from '@supabase/supabase-js';
 
-const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
-const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
+// Environment variable'ları al (fallback ile)
+const supabaseUrl = import.meta.env.VITE_SUPABASE_URL || 'https://sdsvnkvmfhaubgcahvzv.supabase.co';
+const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY || '';
 
-if (!supabaseUrl || !supabaseAnonKey) {
-    throw new Error('Supabase URL or Anon Key is missing. Check your .env file.');
+// Debug için log
+console.log('[Supabase] ENV URL:', import.meta.env.VITE_SUPABASE_URL);
+console.log('[Supabase] ENV Key exists:', !!import.meta.env.VITE_SUPABASE_ANON_KEY);
+
+if (!supabaseAnonKey) {
+    console.error('[Supabase] WARNING: Anon Key is missing!');
 }
 
 // HTTP modu kontrolü
