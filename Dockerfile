@@ -6,6 +6,17 @@ FROM node:20-alpine
 
 WORKDIR /app
 
+# Build arguments for environment variables
+ARG VITE_SUPABASE_URL
+ARG VITE_SUPABASE_ANON_KEY
+ARG VITE_API_URL=/api
+
+# Set as environment variables for build
+ENV VITE_SUPABASE_URL=${VITE_SUPABASE_URL}
+ENV VITE_SUPABASE_ANON_KEY=${VITE_SUPABASE_ANON_KEY}
+ENV VITE_API_URL=${VITE_API_URL}
+ENV NODE_ENV=production
+
 # Copy package files
 COPY package*.json ./
 
@@ -15,7 +26,7 @@ RUN npm install --include=dev
 # Copy source code
 COPY . .
 
-# Build React app - FORCE FRESH BUILD (no cache)
+# Build React app - Environment variables will be injected here
 RUN npm run build
 
 # Verify build output exists
