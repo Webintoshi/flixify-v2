@@ -81,8 +81,9 @@ const supabaseProxyHandler = async (req, res) => {
   const SUPABASE_URL = process.env.SUPABASE_URL || 'https://sdsvnkvmfhaubgcahvzv.supabase.co';
   const SUPABASE_ANON_KEY = process.env.VITE_SUPABASE_ANON_KEY || process.env.SUPABASE_ANON_KEY;
   
-  const path = req.url.replace('/api/supabase-proxy', '');
-  const queryString = new URL(req.url, `http://${req.headers.host}`).search;
+  // /api/supabase-proxy/users?select=* -> /users?select=*
+  const path = req.path.replace('/api/supabase-proxy', '');
+  const queryString = req.url.includes('?') ? req.url.substring(req.url.indexOf('?')) : '';
   const supabaseUrl = `${SUPABASE_URL}/rest/v1${path}${queryString}`;
   
   console.log('[SUPABASE-PROXY] Forwarding to:', supabaseUrl);
@@ -160,8 +161,8 @@ app.get('/api/vod', (req, res) => iptvProxyHandler(req, res, 'player_api.php?act
 app.get('/api/series-categories', (req, res) => iptvProxyHandler(req, res, 'player_api.php?action=get_series_categories'));
 app.get('/api/series', (req, res) => iptvProxyHandler(req, res, 'player_api.php?action=get_series'));
 
-// Supabase Proxy - HTTP modu için
-app.all('/api/supabase-proxy/:path(*)', supabaseProxyHandler);
+// Supabase Proxy - HTTP modu için (wildcard route)
+app.use('/api/supabase-proxy', supabaseProxyHandler);
 
 // Health check  
 app.get('/api/health', (req, res) => res.json({ ok: true, timestamp: new Date().toISOString() }));
