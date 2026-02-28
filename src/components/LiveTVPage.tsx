@@ -7,7 +7,7 @@
 import { useEffect, useState, useCallback, useMemo } from 'react';
 
 import { VideoPlayer } from './VideoPlayer';
-import { IPTVService, LiveCategory, LiveStream, toProxyUrl } from '../lib/iptvService';
+import { IPTVService, LiveCategory, LiveStream, toProxyUrl, toLogoProxyUrl } from '../lib/iptvService';
 
 import { UpgradePrompt } from './UpgradePrompt';
 import {
@@ -263,7 +263,7 @@ export function LiveTVPage() {
                     <div className="w-12 h-12 bg-white/10 rounded flex items-center justify-center overflow-hidden">
                       {stream.stream_icon ? (
                         <img 
-                          src={toProxyUrl(stream.stream_icon)} 
+                          src={toLogoProxyUrl(stream.stream_icon)} 
                           alt={stream.name}
                           className="w-full h-full object-cover"
                         />
@@ -291,7 +291,7 @@ export function LiveTVPage() {
                   >
                     {stream.stream_icon ? (
                       <img 
-                        src={toProxyUrl(stream.stream_icon)} 
+                        src={toLogoProxyUrl(stream.stream_icon)} 
                         alt={stream.name}
                         className="w-12 h-12 object-contain mb-2"
                       />
@@ -320,7 +320,7 @@ export function LiveTVPage() {
             name: selectedStream.name,
             url: streamUrl,
             type: 'live',
-            poster: toProxyUrl(selectedStream.stream_icon),
+            poster: toLogoProxyUrl(selectedStream.stream_icon),
           }}
           onClose={handleClosePlayer}
         />

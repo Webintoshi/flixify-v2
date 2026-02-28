@@ -30,6 +30,14 @@ export const toProxyUrl = (httpUrl: string | null | undefined): string | undefin
   return `${PROXY_BASE}/proxy?url=${encodeURIComponent(httpUrl)}`;
 };
 
+// Logo URL'lerini proxy'den geçir (SSL hatası önlemek için)
+export const toLogoProxyUrl = (logoUrl: string | null | undefined): string | undefined => {
+  if (!logoUrl) return undefined;
+  // HTTPS logoları da proxy'den geçir (SSL protocol error önlemek için)
+  // HTTP logoları zaten proxy'ye ihtiyaç duyar (mixed content)
+  return `${PROXY_BASE}/proxy?url=${encodeURIComponent(logoUrl)}`;
+};
+
 // Types
 export interface LiveCategory {
   category_id: string;

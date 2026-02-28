@@ -52,11 +52,50 @@ const proxyHandler = async (req, res) => {
     console.log(`[PROXY] Response: ${response.status}`);
     
     // Content headers
-    const contentType = response.headers.get('content-type');
+    const contentType = response.headers.get('content-type') || '';
     if (contentType) res.setHeader('Content-Type', contentType);
     
+    // HLS Manifest (m3u8) - URL'leri rewrite et
+    const isHlsManifest = contentType.includes('mpegurl') || 
+                          contentType.includes('m3u8') || 
+                          decodedUrl.endsWith('.m3u8');
+    
+    if (isHlsManifest) {
+      const body = await response.text();
+      
+      // Manifest içindeki URL'leri proxy URL'lerine çevir
+      // Base URL'i al
+      const baseUrl = new URL(decodedUrl);
+      const baseOrigin = `${baseUrl.protocol}//${baseUrl.host}`;
+      
+      // Her satırı işle
+      const lines = body.split('\n');
+      const rewrittenLines = lines.map(line => {
+        // Yorum satırlarını ve boş satırları atla
+        if (line.startsWith('#') || line.trim() === '') {
+          return line;
+        }
+        
+        // URL'leri proxy'ye çevir
+        let absoluteUrl = line;
+        if (line.startsWith('http://') || line.startsWith('https://')) {
+          absoluteUrl = line;
+        } else if (line.startsWith('/')) {
+          absoluteUrl = `${baseOrigin}${line}`;
+        } else {
+          absoluteUrl = `${baseUrl.protocol}//${baseUrl.host}${baseUrl.pathname.substring(0, baseUrl.pathname.lastIndexOf('/') + 1)}${line}`;
+        }
+        
+        return `/proxy?url=${encodeURIComponent(absoluteUrl)}`;
+      });
+      
+      console.log(`[PROXY] HLS Manifest rewritten: ${lines.length} lines`);
+      res.status(response.status).send(rewrittenLines.join('\n'));
+      return;
+    }
+    
     // Stream olarak gönder (büyük dosyalar için)
-    if (response.body) {
+    if (response.body && !isHlsManifest) {
       const reader = response.body.getReader();
       
       while (true) {
