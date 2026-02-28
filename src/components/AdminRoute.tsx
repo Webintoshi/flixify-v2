@@ -40,11 +40,8 @@ export const AdminRoute: React.FC = () => {
     }
 
     // Admin kullanıcılar için subscription kontrolü yapma
-    // Sadece admin olmayan kullanıcılar için geçerli
-    if (profile.role !== 'admin' && profile.role !== 'superadmin' && profile.subscription_status === 'suspended') {
-        return <Navigate to="/" replace />;
-    }
-
+    // NOT: Admin kullanıcılar paket durumuna bakılmaksızın erişebilir
+    
     return <Outlet />;
 };
 
