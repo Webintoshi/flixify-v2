@@ -1,7 +1,7 @@
 import { useState, useEffect, useMemo } from 'react';
 import { 
     Search, Shield, Ban, CheckCircle, Save, X, Clock,
-    Users as UsersIcon, Monitor, Filter, Tv, Calendar,
+    Users as UsersIcon, Monitor, Filter, Tv,
     Download, CheckSquare, Square,
     RefreshCw
 } from 'lucide-react';
@@ -62,11 +62,11 @@ export default function Users() {
         try {
             const { data, error } = await supabase
                 .from('profiles')
-                .select('id, account_number, created_at, role, subscription_status, subscription_ends_at, max_concurrent_streams, email, full_name')
+                .select('id, account_number, created_at, role, subscription_status, subscription_ends_at, max_concurrent_streams, email, full_name, iptv_username, iptv_password, iptv_status, iptv_expiry_date')
                 .order('created_at', { ascending: false });
             
             if (error) throw error;
-            setUsers(data || []);
+            setUsers((data || []) as User[]);
         } catch (err) {
             console.error('Error fetching users:', err);
             addNotification('error', 'Kullanıcılar yüklenirken hata oluştu');
@@ -170,12 +170,7 @@ export default function Users() {
         }
     };
 
-    // Helper: Add months to expiry date
-    const addMonths = (months: number) => {
-        const date = new Date();
-        date.setMonth(date.getMonth() + months);
-        setEditExpiry(date.toISOString().split('T')[0]);
-    };
+
 
     // Edit modal
     const openEditModal = (user: User) => {
@@ -557,7 +552,6 @@ export default function Users() {
                             {/* Subscription -->
                             <div>
                                 <label className="flex items-center gap-2 text-xs font-black uppercase tracking-[0.15em] text-gray-400 mb-3">
-                                    <Calendar size={14} className="text-primary" />
                                     Abonelik Bitiş Tarihi
                                 </label>
                                 <input
@@ -570,7 +564,11 @@ export default function Users() {
                                     {[1, 3, 6, 12].map((m) => (
                                         <button
                                             key={m}
-                                            onClick={() => addMonths(m)}
+                                            onClick={() => {
+                                                const date = new Date();
+                                                date.setMonth(date.getMonth() + m);
+                                                setEditExpiry(date.toISOString().split('T')[0]);
+                                            }}
                                             className="py-2 bg-white/5 hover:bg-white/10 text-gray-300 text-xs font-bold uppercase rounded-lg transition-colors"
                                         >
                                             +{m} {m === 12 ? 'YIL' : 'AY'}
