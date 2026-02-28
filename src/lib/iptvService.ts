@@ -12,10 +12,12 @@
  * - Stream URL: /live/{username}/{password}/{stream_id}.m3u8
  */
 
-// Proxy URL - Otomatik olarak mevcut origin'i kullanır
-// Lokalde: '' (Vite proxy kullanır)
-// Canlıda: http://flixify.pro
-const PROXY_BASE = typeof window !== 'undefined' ? '' : 'http://localhost:3001';
+// Proxy URL - HTTP modu için
+// Canlıda: window.location.origin (http://flixify.pro)
+// Fallback: relative path
+const PROXY_BASE = typeof window !== 'undefined' 
+  ? `${window.location.protocol}//${window.location.host}` 
+  : '';
 
 // NOT: sifiriptvdns.com HTTPS desteklemiyor
 // Tüm streamler proxy üzerinden HTTPS'e upgrade ediliyor
