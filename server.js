@@ -77,11 +77,12 @@ const proxyHandler = async (req, res) => {
 };
 
 // ========== SUPABASE PROXY (HTTP Mode) ==========
+// Tüm Supabase isteklerini (REST + Auth) proxy'ler
 const supabaseProxyHandler = async (req, res) => {
   const SUPABASE_URL = process.env.SUPABASE_URL || 'https://sdsvnkvmfhaubgcahvzv.supabase.co';
   const SUPABASE_ANON_KEY = process.env.VITE_SUPABASE_ANON_KEY || process.env.SUPABASE_ANON_KEY;
   
-  // URL'den path'i çıkar: /api/supabase-proxy/users?select=* -> /users?select=*
+  // URL'den path'i çıkar
   const urlPath = req.originalUrl || req.url;
   const basePath = '/api/supabase-proxy';
   let path = urlPath;
@@ -95,36 +96,78 @@ const supabaseProxyHandler = async (req, res) => {
     path = '/';
   }
   
-  // Supabase URL oluştur
-  const supabaseUrl = `${SUPABASE_URL}/rest/v1${path}`;
+  // Auth endpoint'leri mi yoksa REST API mi?
+  const isAuthEndpoint = path.startsWith('/auth/');
+  const targetUrl = isAuthEndpoint 
+    ? `${SUPABASE_URL}${path}`  // /auth/v1/...
+    : `${SUPABASE_URL}/rest/v1${path}`;  // /rest/v1/...
   
-  console.log('[SUPABASE-PROXY] Original URL:', req.originalUrl);
-  console.log('[SUPABASE-PROXY] Forwarding to:', supabaseUrl);
-  
-  console.log('[SUPABASE-PROXY] Forwarding to:', supabaseUrl);
+  console.log('[SUPABASE-PROXY] Path:', path);
+  console.log('[SUPABASE-PROXY] Target:', targetUrl);
   
   try {
+    // Headers'ı hazırla
     const headers = {
       'apikey': SUPABASE_ANON_KEY,
       'Authorization': req.headers.authorization || `Bearer ${SUPABASE_ANON_KEY}`,
-      'Content-Type': req.headers['content-type'] || 'application/json',
     };
     
-    const response = await fetch(supabaseUrl, {
+    // Content-Type varsa ekle
+    if (req.headers['content-type']) {
+      headers['Content-Type'] = req.headers['content-type'];
+    }
+    
+    // Diğer önemli header'ları ekle
+    if (req.headers['x-client-info']) {
+      headers['X-Client-Info'] = req.headers['x-client-info'];
+    }
+    if (req.headers['prefer']) {
+      headers['Prefer'] = req.headers['prefer'];
+    }
+    
+    // Body'yi al (raw body kullan)
+    let body = undefined;
+    if (!['GET', 'HEAD'].includes(req.method)) {
+      body = req.body;
+      // Eğer body JSON ise string'e çevir
+      if (body && typeof body === 'object') {
+        body = JSON.stringify(body);
+      }
+    }
+    
+    console.log('[SUPABASE-PROXY] Method:', req.method);
+    
+    const response = await fetch(targetUrl, {
       method: req.method,
       headers: headers,
-      body: ['GET', 'HEAD'].includes(req.method) ? undefined : JSON.stringify(req.body),
+      body: body,
     });
     
+    // Response headers'ını kopyala
+    const responseHeaders = {};
+    response.headers.forEach((value, key) => {
+      // Güvenlik header'larını atla
+      if (!['content-encoding', 'transfer-encoding'].includes(key)) {
+        responseHeaders[key] = value;
+      }
+    });
+    
+    // CORS header'ı ekle
+    responseHeaders['Access-Control-Allow-Origin'] = '*';
+    
     const data = await response.text();
-    res.status(response.status).set({
-      'Content-Type': response.headers.get('content-type') || 'application/json',
-      'Access-Control-Allow-Origin': '*'
-    }).send(data);
+    
+    console.log('[SUPABASE-PROXY] Response:', response.status, data.substring(0, 100));
+    
+    res.status(response.status).set(responseHeaders).send(data);
     
   } catch (error) {
     console.error('[SUPABASE-PROXY] Error:', error.message);
-    res.status(500).json({ error: 'Supabase proxy failed', message: error.message });
+    res.status(500).json({ 
+      error: 'Supabase proxy failed', 
+      message: error.message,
+      path: path
+    });
   }
 };
 
