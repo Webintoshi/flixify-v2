@@ -15,11 +15,6 @@ const isHttpMode = typeof window !== 'undefined' && window.location.protocol ===
 // (Relative path kabul etmez)
 const effectiveUrl = REAL_SUPABASE_URL;
 
-console.log('[Supabase] Protocol:', typeof window !== 'undefined' ? window.location.protocol : 'server');
-console.log('[Supabase] Is HTTP Mode:', isHttpMode);
-console.log('[Supabase] Supabase URL:', effectiveUrl);
-console.log('[Supabase] Custom Fetch:', !!customFetch);
-
 // HTTP modunda custom fetch kullan (Mixed Content önlemek için)
 // Supabase HTTPS gerektirir, bizim sitemiz HTTP olduğunda proxy kullanmalıyız
 const customFetch = isHttpMode 
@@ -52,6 +47,11 @@ const customFetch = isHttpMode
         return fetch(url, options);
     }
     : undefined;
+
+console.log('[Supabase] Protocol:', typeof window !== 'undefined' ? window.location.protocol : 'server');
+console.log('[Supabase] Is HTTP Mode:', isHttpMode);
+console.log('[Supabase] Supabase URL:', effectiveUrl);
+console.log('[Supabase] Custom Fetch:', !!customFetch);
 
 export const supabase = createClient(effectiveUrl, supabaseAnonKey, {
     db: {
