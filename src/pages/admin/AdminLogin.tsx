@@ -26,30 +26,43 @@ const AdminLogin: React.FC = () => {
         setError('');
 
         try {
+            console.log('[AdminLogin] Login attempt:', email);
             const { data, error: signInError } = await supabase.auth.signInWithPassword({
                 email,
                 password,
             });
 
+            console.log('[AdminLogin] Sign in result:', { user: !!data.user, error: signInError?.message });
+
             if (signInError) {
                 setError('Giriş başarısız. E-posta veya şifre hatalı.');
             } else if (data.user) {
                 // Check if user is admin
+                console.log('[AdminLogin] Checking profile for user:', data.user.id);
                 const { data: profile, error: profileError } = await supabase
                     .from('profiles')
                     .select('role')
                     .eq('id', data.user.id)
                     .single();
 
-                if (profileError || (profile?.role !== 'admin' && profile?.role !== 'superadmin')) {
-                    setError('Bu hesap admin yetkisine sahip değil.');
+                console.log('[AdminLogin] Profile result:', { profile, error: profileError?.message });
+
+                if (profileError) {
+                    console.error('[AdminLogin] Profile fetch error:', profileError);
+                    setError('Profil bilgisi alınamadı: ' + profileError.message);
+                    await supabase.auth.signOut();
+                } else if (!profile || (profile.role !== 'admin' && profile.role !== 'superadmin')) {
+                    console.log('[AdminLogin] Not admin. Role:', profile?.role);
+                    setError('Bu hesap admin yetkisine sahip değil. Role: ' + (profile?.role || 'none'));
                     await supabase.auth.signOut();
                 } else {
+                    console.log('[AdminLogin] Admin confirmed. Redirecting...');
                     navigate('/admin/dashboard', { replace: true });
                 }
             }
-        } catch (err) {
-            setError('Giriş sırasında beklenmeyen bir hata oluştu.');
+        } catch (err: any) {
+            console.error('[AdminLogin] Unexpected error:', err);
+            setError('Giriş sırasında beklenmeyen bir hata oluştu: ' + err.message);
         } finally {
             setLoading(false);
         }
