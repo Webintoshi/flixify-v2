@@ -39,7 +39,9 @@ export const AdminRoute: React.FC = () => {
         );
     }
 
-    if (profile.subscription_status === 'suspended') {
+    // Admin kullanıcılar için subscription kontrolü yapma
+    // Sadece admin olmayan kullanıcılar için geçerli
+    if (profile.role !== 'admin' && profile.role !== 'superadmin' && profile.subscription_status === 'suspended') {
         return <Navigate to="/" replace />;
     }
 
