@@ -5,7 +5,11 @@
     <link rel="icon" type="image/svg+xml" href="/vite.svg" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <meta name="theme-color" content="#0a0a0a" />
+    <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate" />
+    <meta http-equiv="Pragma" content="no-cache" />
+    <meta http-equiv="Expires" content="0" />
     <title>Flixify</title>
+    <!-- BUILD TIMESTAMP: 2026-02-28T09:19:12 - FORCE REDEPLOY -->
     
     <style>
       * { margin: 0; padding: 0; box-sizing: border-box; }
@@ -63,6 +67,8 @@
     <script>
       // Debug info
       console.log('[Flixify] Initializing...');
+      console.log('[Flixify] Build: 2026-02-28T09:19:12');
+      console.log('[Flixify] Protocol:', window.location.protocol);
       
       // Check if env vars are available
       const supabaseUrl = '%VITE_SUPABASE_URL%';
