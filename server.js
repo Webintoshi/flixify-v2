@@ -81,10 +81,25 @@ const supabaseProxyHandler = async (req, res) => {
   const SUPABASE_URL = process.env.SUPABASE_URL || 'https://sdsvnkvmfhaubgcahvzv.supabase.co';
   const SUPABASE_ANON_KEY = process.env.VITE_SUPABASE_ANON_KEY || process.env.SUPABASE_ANON_KEY;
   
-  // /api/supabase-proxy/users?select=* -> /users?select=*
-  const path = req.path.replace('/api/supabase-proxy', '');
-  const queryString = req.url.includes('?') ? req.url.substring(req.url.indexOf('?')) : '';
-  const supabaseUrl = `${SUPABASE_URL}/rest/v1${path}${queryString}`;
+  // URL'den path'i çıkar: /api/supabase-proxy/users?select=* -> /users?select=*
+  const urlPath = req.originalUrl || req.url;
+  const basePath = '/api/supabase-proxy';
+  let path = urlPath;
+  
+  if (urlPath.startsWith(basePath)) {
+    path = urlPath.substring(basePath.length);
+  }
+  
+  // Eğer path boşsa / olarak ayarla
+  if (!path || path === '') {
+    path = '/';
+  }
+  
+  // Supabase URL oluştur
+  const supabaseUrl = `${SUPABASE_URL}/rest/v1${path}`;
+  
+  console.log('[SUPABASE-PROXY] Original URL:', req.originalUrl);
+  console.log('[SUPABASE-PROXY] Forwarding to:', supabaseUrl);
   
   console.log('[SUPABASE-PROXY] Forwarding to:', supabaseUrl);
   
