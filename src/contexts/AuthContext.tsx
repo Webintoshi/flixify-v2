@@ -82,7 +82,34 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
                 if (data.iptv_username && data.iptv_password) {
                     IPTVService.setCredentials(data.iptv_username, data.iptv_password);
                 }
+            } else if (error?.code === 'PGRST116' || error?.code === '404') {
+                // Profil bulunamadı, oluşturmayı dene
+                console.log('[AuthContext] Profile not found, creating...');
+                const { data: userData } = await supabase.auth.getUser();
+                if (userData.user) {
+                    const newProfile = {
+                        id: userId,
+                        account_number: '53' + Math.floor(Math.random() * 10000000000).toString().padStart(10, '0'),
+                        email: userData.user.email,
+                        role: 'user',
+                        subscription_status: 'none',
+                    };
+                    const { data: created, error: createError } = await supabase
+                        .from('profiles')
+                        .insert(newProfile)
+                        .select()
+                        .single();
+                    
+                    if (!createError && created) {
+                        setProfile(created);
+                        profileCache.set(userId, { profile: created, timestamp: Date.now() });
+                    } else {
+                        console.error('[AuthContext] Profile creation failed:', createError);
+                        setProfile(null);
+                    }
+                }
             } else {
+                console.error('[AuthContext] Profile fetch error:', error);
                 setProfile(null);
             }
         } catch (err) {
