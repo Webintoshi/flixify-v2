@@ -5,6 +5,7 @@ import { Play, Info, ChevronDown, Filter, Film, Search } from 'lucide-react';
 import { motion } from 'framer-motion';
 import { IPTVService, VodStream, toProxyUrl } from '../lib/iptvService';
 import { UpgradePrompt } from './UpgradePrompt';
+import { supabase } from '../lib/supabase';
 
 // VOD Category type
 interface VodCategory {
@@ -42,6 +43,10 @@ export function MoviesPage() {
   const [selectedCategory, setSelectedCategory] = useState<string>("");
   const [selectedMovie, setSelectedMovie] = useState<MovieItem | null>(null);
   
+  // Kullanıcı paket kontrolü
+  const [hasPackage, setHasPackage] = useState<boolean | null>(null);
+  const [user, setUser] = useState<any>(null);
+  
   // Filters
   const [selectedGenre, setSelectedGenre] = useState("Tümü");
   const [localSearchQuery, setLocalSearchQuery] = useState("");
@@ -49,6 +54,45 @@ export function MoviesPage() {
   const [sortBy, setSortBy] = useState<"popularity" | "newest" | "rating">("popularity");
   const [showGenreDropdown, setShowGenreDropdown] = useState(false);
   const [visibleCount, setVisibleCount] = useState(50);
+  
+  // Kullanıcı ve paket kontrolü
+  useEffect(() => {
+    async function checkUserPackage() {
+      try {
+        // Mevcut kullanıcıyı al
+        const { data: { user } } = await supabase.auth.getUser();
+        setUser(user);
+        
+        if (!user) {
+          setHasPackage(false);
+          setLoading(false);
+          return;
+        }
+        
+        // Kullanıcının paketlerini kontrol et
+        const { data: packages, error } = await supabase
+          .from('user_packages')
+          .select('*')
+          .eq('user_id', user.id)
+          .eq('status', 'active');
+        
+        if (error) {
+          console.error('[MoviesPage] Paket kontrol hatası:', error);
+          setHasPackage(false);
+        } else {
+          setHasPackage(packages && packages.length > 0);
+          console.log('[MoviesPage] Kullanıcı paketleri:', packages?.length || 0);
+        }
+      } catch (err) {
+        console.error('[MoviesPage] Kullanıcı kontrol hatası:', err);
+        setHasPackage(false);
+      } finally {
+        setLoading(false);
+      }
+    }
+    
+    checkUserPackage();
+  }, []);
 
   // Load VOD categories and movies
   const loadVodContent = useCallback(async () => {
@@ -185,17 +229,38 @@ export function MoviesPage() {
     });
   };
 
-  // Check credentials
-  if (!IPTVService.hasCredentials() && !loading) {
+  // Paket kontrolü - kullanıcı giriş yapmamış veya paketi yoksa
+  if (!loading && !user) {
+    return (
+      <div className="min-h-screen bg-background flex flex-col items-center justify-center p-4">
+        <div className="text-center max-w-md">
+          <Film className="w-16 h-16 text-primary mx-auto mb-4" />
+          <h2 className="text-2xl font-bold text-white mb-2">Giriş Yapın</h2>
+          <p className="text-foreground-muted mb-6">
+            Filmleri görüntülemek için lütfen giriş yapın veya kaydolun.
+          </p>
+          <button 
+            onClick={() => window.location.href = '/login'}
+            className="bg-primary text-white px-6 py-3 rounded-lg font-semibold hover:bg-primary/90 transition-colors"
+          >
+            Giriş Yap
+          </button>
+        </div>
+      </div>
+    );
+  }
+  
+  // Paket kontrolü - kullanıcı var ama paketi yoksa
+  if (!loading && hasPackage === false) {
     return <UpgradePrompt />;
   }
 
   // Loading state
-  if (loading && movies.length === 0) {
+  if (loading || hasPackage === null) {
     return (
       <div className="min-h-screen bg-background flex flex-col items-center justify-center">
         <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-primary mb-4"></div>
-        <p className="text-foreground-muted text-lg">Filmler yükleniyor...</p>
+        <p className="text-foreground-muted text-lg">Kullanıcı bilgileri kontrol ediliyor...</p>
       </div>
     );
   }
