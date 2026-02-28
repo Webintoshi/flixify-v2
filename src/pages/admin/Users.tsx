@@ -1,7 +1,7 @@
 import { useState, useEffect, useMemo } from 'react';
 import { 
     Search, Shield, Ban, CheckCircle, Save, X, Clock,
-    Users as UsersIcon, Monitor, Filter,
+    Users as UsersIcon, Monitor, Filter, Tv, Calendar,
     Download, CheckSquare, Square,
     RefreshCw
 } from 'lucide-react';
@@ -18,6 +18,10 @@ interface User {
     max_concurrent_streams: number;
     email: string;
     full_name: string | null;
+    iptv_username: string | null;
+    iptv_password: string | null;
+    iptv_status: string | null;
+    iptv_expiry_date: string | null;
 }
 
 interface Filters {
@@ -40,6 +44,9 @@ export default function Users() {
     const [editingUser, setEditingUser] = useState<User | null>(null);
     const [editExpiry, setEditExpiry] = useState('');
     const [editMaxStreams, setEditMaxStreams] = useState(1);
+    const [editIptvUsername, setEditIptvUsername] = useState('');
+    const [editIptvPassword, setEditIptvPassword] = useState('');
+    const [editIptvExpiry, setEditIptvExpiry] = useState('');
     const [updating, setUpdating] = useState(false);
 
     // Bulk Actions
@@ -163,11 +170,21 @@ export default function Users() {
         }
     };
 
+    // Helper: Add months to expiry date
+    const addMonths = (months: number) => {
+        const date = new Date();
+        date.setMonth(date.getMonth() + months);
+        setEditExpiry(date.toISOString().split('T')[0]);
+    };
+
     // Edit modal
     const openEditModal = (user: User) => {
         setEditingUser(user);
         setEditExpiry(user.subscription_ends_at ? new Date(user.subscription_ends_at).toISOString().split('T')[0] : '');
         setEditMaxStreams(user.max_concurrent_streams || 1);
+        setEditIptvUsername(user.iptv_username || '');
+        setEditIptvPassword(user.iptv_password || '');
+        setEditIptvExpiry(user.iptv_expiry_date ? new Date(user.iptv_expiry_date).toISOString().split('T')[0] : '');
     };
 
     const handleUpdateUser = async () => {
@@ -181,6 +198,10 @@ export default function Users() {
                     subscription_ends_at: editExpiry ? new Date(editExpiry).toISOString() : null,
                     subscription_status: editExpiry && new Date(editExpiry) > new Date() ? 'active' : 'expired',
                     max_concurrent_streams: Math.max(1, Math.min(5, editMaxStreams)),
+                    iptv_username: editIptvUsername || null,
+                    iptv_password: editIptvPassword || null,
+                    iptv_expiry_date: editIptvExpiry ? new Date(editIptvExpiry).toISOString() : null,
+                    iptv_status: editIptvUsername ? 'active' : 'inactive',
                 })
                 .eq('id', editingUser.id);
 
@@ -576,6 +597,48 @@ export default function Users() {
                                     <span className="w-10 text-center text-2xl font-black text-primary">
                                         {editMaxStreams}
                                     </span>
+                                </div>
+                            </div>
+
+                            {/* IPTV Credentials */}
+                            <div className="border-t border-white/10 pt-6">
+                                <label className="flex items-center gap-2 text-xs font-black uppercase tracking-[0.15em] text-primary mb-4">
+                                    <Tv size={14} />
+                                    IPTV Bilgileri
+                                </label>
+                                
+                                <div className="space-y-4">
+                                    <div>
+                                        <label className="text-[10px] font-bold uppercase tracking-wider text-gray-500 mb-1.5 block">Kullanıcı Adı</label>
+                                        <input
+                                            type="text"
+                                            value={editIptvUsername}
+                                            onChange={(e) => setEditIptvUsername(e.target.value)}
+                                            placeholder="IPTV Kullanıcı Adı"
+                                            className="w-full px-4 py-3 bg-black/50 border border-white/10 rounded-xl focus:ring-2 focus:ring-primary/50 outline-none text-sm"
+                                        />
+                                    </div>
+                                    
+                                    <div>
+                                        <label className="text-[10px] font-bold uppercase tracking-wider text-gray-500 mb-1.5 block">Şifre</label>
+                                        <input
+                                            type="text"
+                                            value={editIptvPassword}
+                                            onChange={(e) => setEditIptvPassword(e.target.value)}
+                                            placeholder="IPTV Şifre"
+                                            className="w-full px-4 py-3 bg-black/50 border border-white/10 rounded-xl focus:ring-2 focus:ring-primary/50 outline-none text-sm"
+                                        />
+                                    </div>
+                                    
+                                    <div>
+                                        <label className="text-[10px] font-bold uppercase tracking-wider text-gray-500 mb-1.5 block">IPTV Bitiş Tarihi</label>
+                                        <input
+                                            type="date"
+                                            value={editIptvExpiry}
+                                            onChange={(e) => setEditIptvExpiry(e.target.value)}
+                                            className="w-full px-4 py-3 bg-black/50 border border-white/10 rounded-xl focus:ring-2 focus:ring-primary/50 outline-none text-sm [color-scheme:dark]"
+                                        />
+                                    </div>
                                 </div>
                             </div>
                         </div>
