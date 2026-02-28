@@ -7,7 +7,7 @@
 import { useEffect, useState, useCallback, useMemo } from 'react';
 
 import { VideoPlayer } from './VideoPlayer';
-import { IPTVService, LiveCategory, LiveStream, toProxyUrl, toLogoProxyUrl } from '../lib/iptvService';
+import { IPTVService, LiveCategory, LiveStream, toLogoProxyUrl } from '../lib/iptvService';
 
 import { UpgradePrompt } from './UpgradePrompt';
 import {

@@ -3,7 +3,7 @@ import { Header } from './Header';
 import { VideoPlayer } from './VideoPlayer';
 import { Play, Info, ChevronDown, Filter, Film, Search } from 'lucide-react';
 import { motion } from 'framer-motion';
-import { IPTVService, VodStream, toProxyUrl, toLogoProxyUrl } from '../lib/iptvService';
+import { IPTVService, VodStream, toLogoProxyUrl } from '../lib/iptvService';
 import { UpgradePrompt } from './UpgradePrompt';
 import { supabase } from '../lib/supabase';
 
