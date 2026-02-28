@@ -62,6 +62,19 @@ export default defineConfig(async () => ({
     hmr: {
       overlay: false, // Disable error overlay for faster updates
     },
+    // Proxy API requests to local proxy server
+    proxy: {
+      '/api': {
+        target: 'http://localhost:3001',
+        changeOrigin: true,
+        secure: false,
+      },
+      '/proxy': {
+        target: 'http://localhost:3001',
+        changeOrigin: true,
+        secure: false,
+      }
+    },
     // Optimize deps pre-bundling
     optimizeDeps: {
       include: [

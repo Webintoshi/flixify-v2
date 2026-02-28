@@ -2,7 +2,7 @@
  * FLIXIFY IPTV SERVICE - Xtream Codes API
  * 
  * Vultr proxy sunucusu üzerinden Xtream Codes API'ye istek atar
- * Proxy: https://api.flixify.pro (Coolify) veya http://<VULTR_IP>:3001 (geçici)
+ * Proxy: /api (Aynı origin) - HTTP modu için
  * 
  * Xtream Codes API Endpoints:
  * - /api/live-categories (Kategori listesi)
@@ -12,10 +12,10 @@
  * - Stream URL: /live/{username}/{password}/{stream_id}.m3u8
  */
 
-// Proxy URL - Coolify'da api.flixify.pro domain'i port 3001'e yönlendirilecek
-// Geçici olarak doğrudan Vultr IP kullanılabilir
-const PROXY_BASE = 'https://api.flixify.pro';
-// const PROXY_BASE = 'http://<VULTR_IP>:3001'; // Domain aktif olana kadar
+// Proxy URL - Otomatik olarak mevcut origin'i kullanır
+// Lokalde: '' (Vite proxy kullanır)
+// Canlıda: http://flixify.pro
+const PROXY_BASE = typeof window !== 'undefined' ? '' : 'http://localhost:3001';
 
 // NOT: sifiriptvdns.com HTTPS desteklemiyor
 // Tüm streamler proxy üzerinden HTTPS'e upgrade ediliyor

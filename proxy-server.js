@@ -14,19 +14,18 @@ const https = require('https');
 const url = require('url');
 
 const PORT = process.env.PORT || 3001;
-const ALLOWED_ORIGINS = (process.env.ALLOWED_ORIGINS || 'https://flixify.pro,http://localhost:5173').split(',');
+const ALLOWED_ORIGINS = (process.env.ALLOWED_ORIGINS || 'http://flixify.pro,http://www.flixify.pro,http://localhost:5173,http://localhost:3000').split(',');
+
+const IPTV_BASE = 'http://sifiriptvdns.com:80';
 
 const server = http.createServer(async (req, res) => {
-    // CORS Headers
+    // CORS Headers - Tüm origin'lere izin ver
     const origin = req.headers.origin;
-    if (ALLOWED_ORIGINS.includes(origin)) {
-        res.setHeader('Access-Control-Allow-Origin', origin);
-    } else {
-        res.setHeader('Access-Control-Allow-Origin', '*');
-    }
-    res.setHeader('Access-Control-Allow-Methods', 'GET, HEAD, OPTIONS');
+    res.setHeader('Access-Control-Allow-Origin', origin || '*');
+    res.setHeader('Access-Control-Allow-Methods', 'GET, POST, HEAD, OPTIONS');
     res.setHeader('Access-Control-Allow-Headers', '*');
     res.setHeader('Access-Control-Expose-Headers', '*');
+    res.setHeader('Access-Control-Allow-Credentials', 'true');
 
     if (req.method === 'OPTIONS') {
         res.writeHead(200);
@@ -36,6 +35,52 @@ const server = http.createServer(async (req, res) => {
 
     // URL parse
     const parsedUrl = url.parse(req.url, true);
+    const pathname = parsedUrl.pathname;
+    
+    // Xtream Codes API endpoint'leri
+    const xtreamEndpoints = {
+        '/api/live-categories': 'player_api.php?action=get_live_categories',
+        '/api/live-streams': 'player_api.php?action=get_live_streams',
+        '/api/vod-categories': 'player_api.php?action=get_vod_categories',
+        '/api/vod': 'player_api.php?action=get_vod_streams',
+        '/api/series-categories': 'player_api.php?action=get_series_categories',
+        '/api/series': 'player_api.php?action=get_series',
+    };
+    
+    // Eğer Xtream API endpoint'i ise
+    if (xtreamEndpoints[pathname]) {
+        const { username, password, ...otherParams } = parsedUrl.query;
+        
+        if (!username || !password) {
+            res.writeHead(400, { 'Content-Type': 'application/json' });
+            res.end(JSON.stringify({ error: 'Missing username or password' }));
+            return;
+        }
+        
+        const targetUrl = new URL(`${IPTV_BASE}/${xtreamEndpoints[pathname]}`);
+        targetUrl.searchParams.set('username', username);
+        targetUrl.searchParams.set('password', password);
+        
+        Object.entries(otherParams).forEach(([key, value]) => {
+            if (value) targetUrl.searchParams.set(key, value);
+        });
+        
+        console.log(`[IPTV-PROXY] ${pathname}:`, targetUrl.toString());
+        
+        try {
+            const response = await fetch(targetUrl.toString());
+            const data = await response.json();
+            res.writeHead(200, { 'Content-Type': 'application/json' });
+            res.end(JSON.stringify(data));
+        } catch (error) {
+            console.error(`[IPTV-PROXY] Error:`, error.message);
+            res.writeHead(502, { 'Content-Type': 'application/json' });
+            res.end(JSON.stringify({ error: 'IPTV proxy failed', message: error.message }));
+        }
+        return;
+    }
+    
+    // Normal stream proxy
     const targetUrl = parsedUrl.query.url;
 
     if (!targetUrl) {
@@ -51,16 +96,18 @@ const server = http.createServer(async (req, res) => {
         const isHttps = targetParsed.protocol === 'https:';
         const client = isHttps ? https : http;
 
+        // Tüm headers'ı ilet (Authorization dahil)
         const options = {
             hostname: targetParsed.hostname,
             port: targetParsed.port || (isHttps ? 443 : 80),
             path: targetParsed.path,
             method: 'GET',
             headers: {
-                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
-                'Accept': '*/*',
-                'Accept-Language': 'tr-TR,tr;q=0.9',
+                'User-Agent': req.headers['user-agent'] || 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
+                'Accept': req.headers['accept'] || '*/*',
+                'Accept-Language': req.headers['accept-language'] || 'tr-TR,tr;q=0.9',
                 'Referer': targetUrl,
+                'Authorization': req.headers['authorization'] || '',
             },
             timeout: 30000,
         };
