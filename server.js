@@ -161,7 +161,7 @@ app.get('/api/series-categories', (req, res) => iptvProxyHandler(req, res, 'play
 app.get('/api/series', (req, res) => iptvProxyHandler(req, res, 'player_api.php?action=get_series'));
 
 // Supabase Proxy - HTTP modu için
-app.all('/api/supabase-proxy/*', supabaseProxyHandler);
+app.all('/api/supabase-proxy/:path(*)', supabaseProxyHandler);
 
 // Health check  
 app.get('/api/health', (req, res) => res.json({ ok: true, timestamp: new Date().toISOString() }));
