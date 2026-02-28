@@ -1,43 +1,48 @@
 import { createClient } from '@supabase/supabase-js';
 
-// Environment variable'ları al (fallback ile)
-const supabaseUrl = import.meta.env.VITE_SUPABASE_URL || 'https://sdsvnkvmfhaubgcahvzv.supabase.co';
+// Gerçek Supabase URL (fallback)
+const REAL_SUPABASE_URL = 'https://sdsvnkvmfhaubgcahvzv.supabase.co';
 const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY || '';
 
 // Debug için log
 console.log('[Supabase] ENV URL:', import.meta.env.VITE_SUPABASE_URL);
 console.log('[Supabase] ENV Key exists:', !!import.meta.env.VITE_SUPABASE_ANON_KEY);
 
-if (!supabaseAnonKey) {
-    console.error('[Supabase] WARNING: Anon Key is missing!');
-}
-
 // HTTP modu kontrolü
 const isHttpMode = typeof window !== 'undefined' && window.location.protocol === 'http:';
 
-// HTTP modunda proxy kullan, HTTPS modunda direkt bağlan
-const effectiveUrl = isHttpMode 
-    ? `${window.location.origin}/api/supabase-proxy` 
-    : supabaseUrl;
+// Supabase client için HER ZAMAN gerçek URL kullan
+// (Relative path kabul etmez)
+const effectiveUrl = REAL_SUPABASE_URL;
 
-console.log('[Supabase] Mode:', isHttpMode ? 'HTTP (via proxy)' : 'HTTPS (direct)');
-console.log('[Supabase] URL:', effectiveUrl);
+console.log('[Supabase] Protocol:', typeof window !== 'undefined' ? window.location.protocol : 'server');
+console.log('[Supabase] Is HTTP Mode:', isHttpMode);
+console.log('[Supabase] Supabase URL:', effectiveUrl);
+console.log('[Supabase] Custom Fetch:', !!customFetch);
 
-// HTTP modunda custom fetch kullan
+// HTTP modunda custom fetch kullan (Mixed Content önlemek için)
+// Supabase HTTPS gerektirir, bizim sitemiz HTTP olduğunda proxy kullanmalıyız
 const customFetch = isHttpMode 
-    ? (url: string, options: any) => {
-        // Supabase'in gönderdiği URL'yi proxy URL'sine çevir
-        // Örn: https://sdsvnkvmfhaubgcahvzv.supabase.co/rest/v1/users
-        // -> /api/supabase-proxy/users
+    ? (url: string | Request | URL, options: any) => {
+        // URL'i string'e çevir
+        const urlString = url instanceof Request 
+            ? url.url 
+            : url instanceof URL 
+                ? url.toString() 
+                : url;
         
-        if (typeof url === 'string' && url.includes('supabase.co')) {
+        // Supabase URL'ini proxy URL'sine çevir
+        // https://sdsvnkvmfhaubgcahvzv.supabase.co/rest/v1/users -> http://flixify.pro/api/supabase-proxy/users
+        if (typeof urlString === 'string' && urlString.includes('supabase.co')) {
             try {
-                const urlObj = new URL(url);
-                const path = urlObj.pathname.replace('/rest/v1', '');
-                const query = urlObj.search;
+                const urlObj = new URL(urlString);
+                const path = urlObj.pathname; // /rest/v1/users
+                const query = urlObj.search;  // ?select=*
+                
+                // Proxy URL oluştur
                 const proxyUrl = `${window.location.origin}/api/supabase-proxy${path}${query}`;
                 
-                console.log('[Supabase Fetch] Proxy:', proxyUrl);
+                console.log('[Supabase Fetch] HTTP mode - Proxy:', proxyUrl);
                 return fetch(proxyUrl, options);
             } catch (e) {
                 console.error('[Supabase Fetch] URL parse error:', e);
