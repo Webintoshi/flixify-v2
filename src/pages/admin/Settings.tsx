@@ -3,7 +3,7 @@ import {
     Save, Database, Shield, Bell, Server, AlertTriangle,
     CheckCircle, RefreshCw, Key, Lock, Globe, Zap
 } from 'lucide-react';
-
+import { supabase } from '../../lib/supabase';
 import { useAdmin } from '../../contexts/AdminContext';
 
 interface SystemSettings {
@@ -14,29 +14,79 @@ interface SystemSettings {
     stream_proxy_mode: 'bunny' | 'direct';
 }
 
+// Default settings
+const defaultSettings: SystemSettings = {
+    maintenance_mode: false,
+    registration_enabled: true,
+    default_max_streams: 2,
+    stream_timeout: 30,
+    stream_proxy_mode: 'bunny'
+};
+
+// Settings key mapping
+const SETTINGS_KEYS: Record<keyof SystemSettings, string> = {
+    maintenance_mode: 'maintenance_mode',
+    registration_enabled: 'registration_enabled',
+    default_max_streams: 'default_max_streams',
+    stream_timeout: 'stream_timeout',
+    stream_proxy_mode: 'stream_proxy_mode'
+};
+
 export default function Settings() {
-    const [settings, setSettings] = useState<SystemSettings>({
-        maintenance_mode: false,
-        registration_enabled: true,
-        default_max_streams: 2,
-        stream_timeout: 30,
-        stream_proxy_mode: 'bunny'
-    });
-    const [, setLoading] = useState(true);
+    const [settings, setSettings] = useState<SystemSettings>(defaultSettings);
+    const [loading, setLoading] = useState(true);
     const [saving, setSaving] = useState(false);
     const [saveSuccess, setSaveSuccess] = useState(false);
     
     const { addActivity, addNotification } = useAdmin();
 
-    // Fetch settings from Supabase (stored in a settings table or app_config)
+    // Fetch settings from Supabase
     useEffect(() => {
         const fetchSettings = async () => {
             try {
-                // In a real app, you'd have a settings table
-                // For now, we'll use local defaults
-                setLoading(false);
+                const { data, error } = await supabase
+                    .from('system_settings')
+                    .select('key, value');
+
+                if (error) {
+                    console.error('Error fetching settings:', error);
+                    addNotification('error', 'Ayarlar yüklenemedi');
+                } else if (data) {
+                    // Convert array to object
+                    const settingsMap: Partial<SystemSettings> = {};
+                    data.forEach((item: any) => {
+                        const key = Object.keys(SETTINGS_KEYS).find(
+                            k => SETTINGS_KEYS[k as keyof SystemSettings] === item.key
+                        ) as keyof SystemSettings | undefined;
+                        
+                        if (key) {
+                            let value = item.value;
+                            // Parse JSON values
+                            if (typeof value === 'string') {
+                                try {
+                                    value = JSON.parse(value);
+                                } catch {
+                                    // Keep as string
+                                }
+                            }
+                            
+                            // Type conversions
+                            if (key === 'maintenance_mode' || key === 'registration_enabled') {
+                                settingsMap[key] = value === true || value === 'true';
+                            } else if (key === 'default_max_streams' || key === 'stream_timeout') {
+                                settingsMap[key] = parseInt(value) || defaultSettings[key];
+                            } else {
+                                settingsMap[key] = value;
+                            }
+                        }
+                    });
+                    
+                    setSettings({ ...defaultSettings, ...settingsMap });
+                }
             } catch (err) {
                 console.error('Error fetching settings:', err);
+            } finally {
+                setLoading(false);
             }
         };
         fetchSettings();
@@ -45,14 +95,24 @@ export default function Settings() {
     const handleSave = async () => {
         setSaving(true);
         try {
-            // Here you would save to Supabase
-            await new Promise(resolve => setTimeout(resolve, 1000)); // Simulate API call
+            const updates = Object.entries(SETTINGS_KEYS).map(([settingKey, dbKey]) => ({
+                key: dbKey,
+                value: JSON.stringify(settings[settingKey as keyof SystemSettings])
+            }));
+
+            // Upsert all settings
+            const { error } = await supabase
+                .from('system_settings')
+                .upsert(updates, { onConflict: 'key' });
+
+            if (error) throw error;
             
             addActivity('Sistem ayarları güncellendi', 'Settings');
             addNotification('success', 'Ayarlar kaydedildi');
             setSaveSuccess(true);
             setTimeout(() => setSaveSuccess(false), 3000);
         } catch (err) {
+            console.error('Error saving settings:', err);
             addNotification('error', 'Ayarlar kaydedilemedi');
         } finally {
             setSaving(false);
@@ -101,6 +161,14 @@ export default function Settings() {
             />
         </label>
     );
+
+    if (loading) {
+        return (
+            <div className="max-w-5xl mx-auto flex items-center justify-center h-96">
+                <div className="w-12 h-12 border-4 border-primary border-t-transparent rounded-full animate-spin" />
+            </div>
+        );
+    }
 
     return (
         <div className="max-w-5xl mx-auto animation-fade-in">
